@@ -54,7 +54,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
   font-weight: 800; font-size: 15px; background: var(--panel); border: 2px solid var(--paper);
   padding: 2px 12px; min-width: 64px; text-align: center;
 }
-.hotbar { display: flex; gap: 4px; padding: 4px; background: var(--panel); border: 3px solid var(--ink); box-shadow: 0 0 0 2px var(--paper) inset; pointer-events: auto; max-width: 100%; }
+.hotbar { direction: ltr; display: flex; gap: 4px; padding: 4px; background: var(--panel); border: 3px solid var(--ink); box-shadow: 0 0 0 2px var(--paper) inset; pointer-events: auto; max-width: 100%; }
 .slot {
   width: clamp(34px, 10.4vw, 46px); aspect-ratio: 1; border: 3px solid rgba(243, 240, 230, 0.28);
   background: rgba(0, 0, 0, 0.3); padding: 2px; display: block; cursor: pointer;
@@ -83,9 +83,14 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
 
 .top {
   position: absolute; top: calc(10px + env(safe-area-inset-top, 0px)); right: max(16px, env(safe-area-inset-right, 0px));
-  display: flex; gap: 8px;
+  display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; max-width: calc(100% - 150px);
 }
-.top .btn { height: 40px; padding: 0 14px; font-size: 15px; }
+.top .btn { height: 38px; padding: 0 10px; font-size: 14px; }
+.coords {
+  position: absolute; top: calc(10px + env(safe-area-inset-top, 0px)); left: max(16px, env(safe-area-inset-left, 0px));
+  font: 500 12px/1.3 ui-monospace, Menlo, Consolas, monospace; background: var(--panel);
+  border: 2px solid var(--paper); padding: 3px 8px; pointer-events: none; direction: ltr; white-space: nowrap;
+}
 
 .card {
   position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%);
@@ -106,8 +111,11 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
   <canvas id="view" tabindex="0"></canvas>
   <div class="cross"></div>
 
+  <div class="coords" id="coords">X 0 Y 0 Z 0</div>
   <div class="top">
     <button class="btn" id="flyBtn" type="button">طيران</button>
+    <button class="btn" id="rdBtn" type="button">المسافة 5</button>
+    <button class="btn" id="nwBtn" type="button">عالم جديد</button>
   </div>
 
   <div class="pad pad-l"><div id="stick"><div id="knob"></div></div></div>
@@ -127,6 +135,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
 
   <div class="card" id="intro">
     <h1>عالم المكعبات</h1>
+    <p>عالم لا نهاية له: كلما مشيت يظهر أمامك عالم جديد. بناؤك يُحفظ تلقائياً.</p>
     <p id="help"></p>
     <button class="btn" id="go" type="button">ابدأ اللعب</button>
   </div>
@@ -134,25 +143,22 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 (function () {
-  var W = 64, D = 64, H = 32, CS = 16, NCX = W / CS, NCZ = D / CS;
-  var world = new Uint8Array(W * H * D);
+  var CS = 16, H = 64, SEA = 14;
+  var SAVE_KEY = "cubes-world-v2";
+  var SEED = Math.floor(Math.random() * 900000) + 1;
+  var edits = {};            // chunk key -> { localIndex: block }
+  var chunks = new Map();    // chunk key -> { cx, cz, d, top }
+  var meshes = new Map();    // chunk key -> mesh (or empty marker)
+  var lc = null;             // last chunk lookup cache
 
-  function get(x, y, z) {
-    if (y < 0) return 3;
-    if (x < 0 || z < 0 || x >= W || z >= D || y >= H) return 0;
-    return world[x + W * (z + D * y)];
-  }
-  function put(x, y, z, b) { world[x + W * (z + D * y)] = b; }
-  function solid(x, y, z) {
-    if (y < 0) return true;
-    if (x < 0 || z < 0 || x >= W || z >= D) return true;
-    if (y >= H) return false;
-    return world[x + W * (z + D * y)] > 0;
-  }
+  /* ---------- saved game ---------- */
+  var saved = null;
+  try { saved = JSON.parse(localStorage.getItem(SAVE_KEY) || "null"); } catch (e) { saved = null; }
+  if (saved && typeof saved.seed === "number") { SEED = saved.seed; edits = saved.edits || {}; } else { saved = null; }
 
-  /* ---------- terrain ---------- */
+  /* ---------- noise and terrain ---------- */
   function hash(x, z, s) {
-    var h = Math.imul(x, 374761393) + Math.imul(z, 668265263) + Math.imul(s | 0, 144665);
+    var h = Math.imul(x | 0, 374761393) + Math.imul(z | 0, 668265263) + Math.imul((s + SEED) | 0, 144665);
     h = Math.imul(h ^ (h >>> 13), 1274126177);
     return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
   }
@@ -163,37 +169,71 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
   }
   function fbm(x, z, s) { return vnoise(x, z, s) * 0.6 + vnoise(x * 2.1, z * 2.1, s + 1) * 0.28 + vnoise(x * 4.3, z * 4.3, s + 2) * 0.12; }
-
-  var heights = [];
-  for (var x = 0; x < W; x++) {
-    heights[x] = [];
-    for (var z = 0; z < D; z++) {
-      var h = Math.floor(7 + fbm(x / 20, z / 20, 11) * 15);
-      h = Math.max(3, Math.min(H - 9, h));
-      heights[x][z] = h;
-      var sandy = h <= 10;
-      for (var y = 0; y <= h; y++) {
-        var b = 3;
-        if (y === h) b = sandy ? 7 : 1;
-        else if (y > h - 4) b = sandy ? 7 : 2;
-        put(x, y, z, b);
-      }
-    }
+  function height(x, z) {
+    var c = fbm(x / 110, z / 110, 3), m = fbm(x / 30, z / 30, 11), r = vnoise(x / 9, z / 9, 21);
+    var h = 24 + (c - 0.5) * 30 + (m - 0.5) * 16 + r * 2 + Math.max(0, c - 0.58) * 70;
+    return Math.max(3, Math.min(H - 12, Math.floor(h)));
   }
-  for (var tx = 3; tx < W - 3; tx++) {
-    for (var tz = 3; tz < D - 3; tz++) {
-      if (hash(tx, tz, 99) < 0.012 && get(tx, heights[tx][tz], tz) === 1) {
-        var th = 4 + Math.floor(hash(tx, tz, 5) * 2), base = heights[tx][tz] + 1;
-        for (var ly = base - 2 + th - 1; ly <= base + th; ly++) {
-          var r = ly >= base + th - 1 ? 1 : 2;
-          for (var dx = -r; dx <= r; dx++) for (var dz = -r; dz <= r; dz++) {
-            if (r === 2 && Math.abs(dx) === 2 && Math.abs(dz) === 2) continue;
-            if (ly < H && get(tx + dx, ly, tz + dz) === 0) put(tx + dx, ly, tz + dz, 5);
-          }
-        }
-        for (var t = 0; t < th; t++) put(tx, base + t, tz, 4);
+  function ckey(cx, cz) { return (cx + 100000) * 200000 + (cz + 100000); }
+
+  function genChunk(cx, cz) {
+    var d = new Uint8Array(CS * CS * H), x0 = cx * CS, z0 = cz * CS, top = 0, lx, lz, y;
+    for (lz = 0; lz < CS; lz++) for (lx = 0; lx < CS; lx++) {
+      var h = height(x0 + lx, z0 + lz), sandy = h <= SEA + 1, rocky = h >= 40;
+      if (h > top) top = h;
+      for (y = 0; y <= h; y++) {
+        var b = 3;
+        if (y === h) b = sandy ? 7 : rocky ? 3 : 1;
+        else if (y > h - 4) b = sandy ? 7 : rocky ? 3 : 2;
+        d[lx + CS * (lz + CS * y)] = b;
       }
     }
+    for (var tx = x0 - 2; tx < x0 + CS + 2; tx++) for (var tz = z0 - 2; tz < z0 + CS + 2; tz++) {
+      if (hash(tx, tz, 99) >= 0.012) continue;
+      var th = height(tx, tz);
+      if (th <= SEA + 1 || th >= 40) continue;
+      var tl = 4 + Math.floor(hash(tx, tz, 5) * 2), base = th + 1;
+      if (base + tl >= H - 1) continue;
+      for (var ly = base + tl - 3; ly <= base + tl; ly++) {
+        var rr = ly >= base + tl - 1 ? 1 : 2;
+        for (var dx = -rr; dx <= rr; dx++) for (var dz = -rr; dz <= rr; dz++) {
+          if (rr === 2 && Math.abs(dx) === 2 && Math.abs(dz) === 2) continue;
+          var ax = tx + dx - x0, az = tz + dz - z0;
+          if (ax < 0 || ax >= CS || az < 0 || az >= CS) continue;
+          var li = ax + CS * (az + CS * ly);
+          if (!d[li]) d[li] = 5;
+        }
+      }
+      var tlx = tx - x0, tlz = tz - z0;
+      if (tlx >= 0 && tlx < CS && tlz >= 0 && tlz < CS) for (var t = 0; t < tl; t++) d[tlx + CS * (tlz + CS * (base + t))] = 4;
+      if (base + tl > top) top = base + tl;
+    }
+    var e = edits[ckey(cx, cz)];
+    if (e) for (var k in e) {
+      var idx = +k;
+      d[idx] = e[k];
+      var ey = Math.floor(idx / (CS * CS));
+      if (e[k] && ey > top) top = ey;
+    }
+    return { cx: cx, cz: cz, d: d, top: Math.min(H - 1, top + 1) };
+  }
+
+  function getChunk(cx, cz) {
+    if (lc && lc.cx === cx && lc.cz === cz) return lc;
+    var k = ckey(cx, cz), c = chunks.get(k);
+    if (!c) { c = genChunk(cx, cz); chunks.set(k, c); }
+    lc = c;
+    return c;
+  }
+  function get(x, y, z) {
+    if (y < 0) return 3;
+    if (y >= H) return 0;
+    return getChunk(x >> 4, z >> 4).d[(x & 15) + CS * ((z & 15) + CS * y)];
+  }
+  function solid(x, y, z) {
+    if (y < 0) return true;
+    if (y >= H) return false;
+    return get(x, y, z) > 0;
   }
 
   /* ---------- texture atlas ---------- */
@@ -264,24 +304,35 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
   ];
   var mat = new THREE.MeshBasicMaterial({ map: tex, vertexColors: true });
   var scene = new THREE.Scene();
-  var chunkMesh = {};
 
-  function buildChunk(cx, cz) {
-    var key = cx + "," + cz;
-    if (chunkMesh[key]) { scene.remove(chunkMesh[key]); chunkMesh[key].geometry.dispose(); delete chunkMesh[key]; }
+  function dropMesh(k) {
+    var m = meshes.get(k);
+    if (!m) return;
+    if (m.geometry) { scene.remove(m); m.geometry.dispose(); }
+    meshes.delete(k);
+  }
+
+  function buildChunkMesh(cx, cz) {
+    var k = ckey(cx, cz);
+    dropMesh(k);
+    var c = getChunk(cx, cz), d = c.d, x0 = cx * CS, z0 = cz * CS;
     var pos = [], uv = [], cl = [], ind = [], n = 0;
-    for (var y = 0; y < H; y++) for (var z = cz * CS; z < cz * CS + CS; z++) for (var x = cx * CS; x < cx * CS + CS; x++) {
-      var b = get(x, y, z);
+    for (var y = 0; y <= c.top; y++) for (var lz = 0; lz < CS; lz++) for (var lx = 0; lx < CS; lx++) {
+      var b = d[lx + CS * (lz + CS * y)];
       if (!b) continue;
       var def = B[b];
       for (var fi = 0; fi < 6; fi++) {
-        var f = FACES[fi];
-        if (get(x + f.d[0], y + f.d[1], z + f.d[2])) continue;
+        var f = FACES[fi], nx = lx + f.d[0], ny = y + f.d[1], nz = lz + f.d[2], nb;
+        if (ny < 0) nb = 3;
+        else if (ny >= H) nb = 0;
+        else if (nx >= 0 && nx < CS && nz >= 0 && nz < CS) nb = d[nx + CS * (nz + CS * ny)];
+        else nb = get(x0 + nx, ny, z0 + nz);
+        if (nb) continue;
         var tile = f.k === "t" ? def.top : f.k === "b" ? def.bottom : def.side;
         var u0 = tile / NT + 0.0006, u1 = (tile + 1) / NT - 0.0006;
         for (var i = 0; i < 4; i++) {
-          var c = f.c[i];
-          pos.push(x + c[0], y + c[1], z + c[2]);
+          var cc = f.c[i];
+          pos.push(lx + cc[0], y + cc[1], lz + cc[2]);
           uv.push(i === 0 || i === 3 ? u0 : u1, i < 2 ? 0 : 1);
           cl.push(f.s, f.s, f.s);
         }
@@ -289,6 +340,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
         n += 4;
       }
     }
+    if (n === 0) { meshes.set(k, { userData: { cx: cx, cz: cz } }); return; }
     var g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
     g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
@@ -296,20 +348,29 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     g.setIndex(ind);
     g.computeBoundingSphere();
     var m = new THREE.Mesh(g, mat);
-    chunkMesh[key] = m;
+    m.position.set(x0, 0, z0);
+    m.userData = { cx: cx, cz: cz };
+    meshes.set(k, m);
     scene.add(m);
   }
 
+  var saveTimer = null;
+  function scheduleSave() { if (!saveTimer) saveTimer = setTimeout(save, 1500); }
+
   function setBlock(x, y, z, b) {
-    if (x < 0 || z < 0 || x >= W || z >= D || y < 1 || y >= H) return;
-    put(x, y, z, b);
-    var cx = Math.floor(x / CS), cz = Math.floor(z / CS);
-    buildChunk(cx, cz);
-    var lx = x - cx * CS, lz = z - cz * CS;
-    if (lx === 0 && cx > 0) buildChunk(cx - 1, cz);
-    if (lx === CS - 1 && cx < NCX - 1) buildChunk(cx + 1, cz);
-    if (lz === 0 && cz > 0) buildChunk(cx, cz - 1);
-    if (lz === CS - 1 && cz < NCZ - 1) buildChunk(cx, cz + 1);
+    if (y < 1 || y >= H) return;
+    var cx = x >> 4, cz = z >> 4, c = getChunk(cx, cz), lidx = (x & 15) + CS * ((z & 15) + CS * y);
+    c.d[lidx] = b;
+    if (b && y > c.top) c.top = Math.min(H - 1, y + 1);
+    var k = ckey(cx, cz);
+    (edits[k] || (edits[k] = {}))[lidx] = b;
+    buildChunkMesh(cx, cz);
+    var lx = x & 15, lz = z & 15;
+    if (lx === 0 && meshes.has(ckey(cx - 1, cz))) buildChunkMesh(cx - 1, cz);
+    if (lx === CS - 1 && meshes.has(ckey(cx + 1, cz))) buildChunkMesh(cx + 1, cz);
+    if (lz === 0 && meshes.has(ckey(cx, cz - 1))) buildChunkMesh(cx, cz - 1);
+    if (lz === CS - 1 && meshes.has(ckey(cx, cz + 1))) buildChunkMesh(cx, cz + 1);
+    scheduleSave();
   }
 
   /* ---------- renderer ---------- */
@@ -319,8 +380,8 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   var SKY = 0x8ec5ee;
   scene.background = new THREE.Color(SKY);
-  scene.fog = new THREE.Fog(SKY, 26, 58);
-  var camera = new THREE.PerspectiveCamera(72, 1, 0.05, 120);
+  scene.fog = new THREE.Fog(SKY, 30, 70);
+  var camera = new THREE.PerspectiveCamera(72, 1, 0.05, 200);
   camera.rotation.order = "YXZ";
 
   function resize() {
@@ -333,7 +394,18 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
   window.addEventListener("resize", resize);
   resize();
 
-  for (var ccx = 0; ccx < NCX; ccx++) for (var ccz = 0; ccz < NCZ; ccz++) buildChunk(ccx, ccz);
+  var isTouch = ("ontouchstart" in window) || navigator.maxTouchPoints > 0;
+  var RADII = [3, 5, 7, 9];
+  var R = (saved && RADII.indexOf(saved.R) >= 0) ? saved.R : (isTouch ? 5 : 7);
+  var rdBtn = document.getElementById("rdBtn");
+  function applyRadius() {
+    scene.fog.near = R * CS * 0.45;
+    scene.fog.far = R * CS - 6;
+    camera.far = R * CS + 40;
+    camera.updateProjectionMatrix();
+    rdBtn.textContent = "المسافة " + R;
+  }
+  applyRadius();
 
   var hl = new THREE.LineSegments(
     new THREE.EdgesGeometry(new THREE.BoxGeometry(1.004, 1.004, 1.004)),
@@ -343,19 +415,73 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
   scene.add(hl);
 
   /* ---------- player ---------- */
-  var P = { x: W / 2 + 0.5, y: 0, z: D / 2 + 0.5, vy: 0, ground: false, yaw: 0.6, pitch: -0.25, fly: false };
-  (function spawn() {
-    var sx = Math.floor(P.x), sz = Math.floor(P.z), yy = H - 1;
-    while (yy > 0 && !solid(sx, yy, sz)) yy--;
-    P.y = yy + 1.01;
-  })();
+  var P = { x: 8.5, y: 40, z: 8.5, vy: 0, ground: false, yaw: 0.6, pitch: -0.25, fly: false };
+  var sel = 0;
 
   function hits(px, py, pz) {
     var x0 = Math.floor(px - 0.3), x1 = Math.floor(px + 0.3), y0 = Math.floor(py), y1 = Math.floor(py + 1.8), z0 = Math.floor(pz - 0.3), z1 = Math.floor(pz + 0.3);
     for (var y = y0; y <= y1; y++) for (var z = z0; z <= z1; z++) for (var x = x0; x <= x1; x++) if (solid(x, y, z)) return true;
     return false;
   }
+  function spawnAt(x, z) {
+    var yy = H - 1;
+    while (yy > 0 && !solid(x, yy, z)) yy--;
+    P.x = x + 0.5; P.z = z + 0.5; P.y = yy + 1.01; P.vy = 0;
+  }
+  if (saved && saved.p && isFinite(saved.p.x) && isFinite(saved.p.y) && isFinite(saved.p.z)) {
+    P.x = saved.p.x; P.y = saved.p.y; P.z = saved.p.z;
+    P.yaw = saved.p.yaw || 0; P.pitch = saved.p.pitch || 0;
+    var guard = 0;
+    while (hits(P.x, P.y, P.z) && guard++ < 80) P.y += 1;
+  } else {
+    spawnAt(8, 8);
+  }
 
+  /* ---------- chunk streaming ---------- */
+  var pcx = null, pcz = null, pending = [];
+  function plan() {
+    var list = [], dx, dz;
+    for (dx = -R; dx <= R; dx++) for (dz = -R; dz <= R; dz++) {
+      var dd = dx * dx + dz * dz;
+      if (dd > R * R + R) continue;
+      if (!meshes.has(ckey(pcx + dx, pcz + dz))) list.push({ cx: pcx + dx, cz: pcz + dz, dd: dd });
+    }
+    list.sort(function (a, b) { return a.dd - b.dd; });
+    pending = list;
+    var far = (R + 2) * (R + 2) + R, gone = (R + 6) * (R + 6);
+    var dropKeys = [];
+    meshes.forEach(function (m, k) {
+      var ex = m.userData.cx - pcx, ez = m.userData.cz - pcz;
+      if (ex * ex + ez * ez > far) dropKeys.push(k);
+    });
+    dropKeys.forEach(dropMesh);
+    var evict = [];
+    chunks.forEach(function (c, k) {
+      var ex = c.cx - pcx, ez = c.cz - pcz;
+      if (ex * ex + ez * ez > gone) evict.push(k);
+    });
+    if (evict.length) { lc = null; evict.forEach(function (k) { chunks.delete(k); }); }
+  }
+  function pump(ms) {
+    var t = performance.now(), did = 0;
+    while (pending.length && (did === 0 || performance.now() - t < ms)) {
+      var p = pending.shift();
+      if (meshes.has(ckey(p.cx, p.cz))) continue;
+      buildChunkMesh(p.cx, p.cz);
+      did++;
+    }
+  }
+  function trackPlayerChunk() {
+    var cx = Math.floor(P.x / CS), cz = Math.floor(P.z / CS);
+    if (cx !== pcx || cz !== pcz) { pcx = cx; pcz = cz; plan(); }
+  }
+  trackPlayerChunk();
+  for (var ix = -2; ix <= 2; ix++) for (var iz = -2; iz <= 2; iz++) {
+    if (!meshes.has(ckey(pcx + ix, pcz + iz))) buildChunkMesh(pcx + ix, pcz + iz);
+  }
+  plan();
+
+  /* ---------- movement ---------- */
   var inp = { fx: 0, fy: 0, jump: false, down: false };
   var keys = {};
 
@@ -367,13 +493,13 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     if (keys.KeyS || keys.ArrowDown) iy -= 1;
     var len = Math.hypot(ix, iy);
     if (len > 1) { ix /= len; iy /= len; }
-    var sp = P.fly ? 9 : 4.6;
+    var sp = P.fly ? 10 : 4.6;
     var sn = Math.sin(P.yaw), cs = Math.cos(P.yaw);
     var vx = (-sn * iy + cs * ix) * sp, vz = (-cs * iy - sn * ix) * sp;
     var jmp = inp.jump || keys.Space, dwn = inp.down || keys.ShiftLeft || keys.ShiftRight;
 
     if (P.fly) {
-      P.vy = ((jmp ? 1 : 0) - (dwn ? 1 : 0)) * 7;
+      P.vy = ((jmp ? 1 : 0) - (dwn ? 1 : 0)) * 8;
     } else {
       P.vy = Math.max(P.vy - 24 * dt, -30);
       if (jmp && P.ground) { P.vy = 7.8; P.ground = false; }
@@ -383,7 +509,8 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     var ny = P.y + P.vy * dt;
     if (!hits(P.x, ny, P.z)) { P.y = ny; P.ground = false; }
     else { if (P.vy < 0) P.ground = true; P.vy = 0; }
-    if (P.y < -10 || P.y > H + 40) { P.y = H; P.vy = 0; }
+    if (P.y < -10) spawnAt(Math.floor(P.x), Math.floor(P.z));
+    if (P.y > H + 40) P.y = H + 40;
     camera.position.set(P.x, P.y + 1.62, P.z);
     camera.rotation.set(P.pitch, P.yaw, 0);
   }
@@ -410,7 +537,6 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     return null;
   }
 
-  var sel = 0;
   function doBreak() {
     var h = pick();
     if (h && h.y > 0) setBlock(h.x, h.y, h.z, 0);
@@ -420,9 +546,11 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     if (!h) return;
     var x = h.x + h.nx, y = h.y + h.ny, z = h.z + h.nz;
     if (get(x, y, z) || y < 1 || y >= H) return;
-    put(x, y, z, HOT[sel]);
-    if (hits(P.x, P.y, P.z)) { put(x, y, z, 0); return; }
-    put(x, y, z, 0);
+    var c = getChunk(x >> 4, z >> 4), li = (x & 15) + CS * ((z & 15) + CS * y);
+    c.d[li] = HOT[sel];
+    var blocked = hits(P.x, P.y, P.z);
+    c.d[li] = 0;
+    if (blocked) return;
     setBlock(x, y, z, HOT[sel]);
   }
 
@@ -443,13 +571,12 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     slots.forEach(function (s, k) { s.classList.toggle("on", k === sel); });
     bname.textContent = B[HOT[sel]].name;
   }
-  select(0);
+  select(saved && saved.sel >= 0 && saved.sel < HOT.length ? saved.sel : 0);
 
   /* ---------- input ---------- */
-  var isTouch = ("ontouchstart" in window) || navigator.maxTouchPoints > 0;
   if (isTouch) app.classList.add("touch");
   document.getElementById("help").textContent = isTouch
-    ? "اسحب على الشاشة للنظر حولك. استخدم العصا للمشي وزر القفز للصعود. اضغط حفر لهدم المكعب وبناء لوضع مكعب جديد."
+    ? "اسحب على الشاشة للنظر حولك. العصا للمشي، وزر قفز للصعود، وحفر لهدم المكعب، وبناء لوضع مكعب جديد."
     : "اضغط على الشاشة لبدء التحكم. WASD للمشي، مسافة للقفز، نقرة يسار للحفر ونقرة يمين للبناء، وأرقام 1 إلى 8 أو العجلة لاختيار المكعب. F للطيران.";
 
   document.addEventListener("keydown", function (e) {
@@ -499,15 +626,14 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
   cv.addEventListener("pointerup", up);
   cv.addEventListener("pointercancel", up);
 
-  // joystick
   var stick = document.getElementById("stick"), knob = document.getElementById("knob"), sid = null;
   function stickMove(e) {
     var r = stick.getBoundingClientRect();
     var dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
-    var m = Math.hypot(dx, dy), R = 44;
-    if (m > R) { dx = dx / m * R; dy = dy / m * R; }
+    var m = Math.hypot(dx, dy), RR = 44;
+    if (m > RR) { dx = dx / m * RR; dy = dy / m * RR; }
     knob.style.transform = "translate(" + dx + "px," + dy + "px)";
-    var nx = dx / R, ny = dy / R;
+    var nx = dx / RR, ny = dy / RR;
     inp.fx = Math.abs(nx) < 0.12 ? 0 : nx;
     inp.fy = Math.abs(ny) < 0.12 ? 0 : -ny;
   }
@@ -517,7 +643,6 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
   stick.addEventListener("pointerup", stickEnd);
   stick.addEventListener("pointercancel", stickEnd);
 
-  // buttons
   function hold(el, on, off, rep) {
     var timer = null;
     el.addEventListener("pointerdown", function (e) {
@@ -541,18 +666,67 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     app.classList.toggle("flying", P.fly);
   }
   flyBtn.addEventListener("click", toggleFly);
+  if (saved && saved.fly) toggleFly();
+
+  rdBtn.addEventListener("click", function () {
+    var i = RADII.indexOf(R);
+    R = RADII[(i + 1) % RADII.length];
+    applyRadius();
+    plan();
+    scheduleSave();
+  });
+
+  var nwBtn = document.getElementById("nwBtn"), armed = false, armTimer = null;
+  nwBtn.addEventListener("click", function () {
+    if (!armed) {
+      armed = true; nwBtn.textContent = "اضغط للتأكيد"; nwBtn.classList.add("on");
+      armTimer = setTimeout(function () { armed = false; nwBtn.textContent = "عالم جديد"; nwBtn.classList.remove("on"); }, 3000);
+      return;
+    }
+    clearTimeout(armTimer); armed = false; nwBtn.textContent = "عالم جديد"; nwBtn.classList.remove("on");
+    newWorld();
+  });
+  function newWorld() {
+    SEED = Math.floor(Math.random() * 900000) + 1;
+    edits = {};
+    var ks = []; meshes.forEach(function (m, k) { ks.push(k); });
+    ks.forEach(dropMesh);
+    chunks.clear(); lc = null; pending = [];
+    spawnAt(8, 8);
+    pcx = null; pcz = null;
+    trackPlayerChunk();
+    for (var a = -2; a <= 2; a++) for (var b = -2; b <= 2; b++) buildChunkMesh(pcx + a, pcz + b);
+    plan();
+    save();
+  }
+
+  function save() {
+    saveTimer = null;
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify({
+        seed: SEED, edits: edits, R: R, sel: sel, fly: P.fly ? 1 : 0,
+        p: { x: P.x, y: P.y, z: P.z, yaw: P.yaw, pitch: P.pitch }
+      }));
+    } catch (e) {}
+  }
+  setInterval(save, 8000);
+  document.addEventListener("visibilitychange", function () { if (document.hidden) save(); });
+  window.addEventListener("pagehide", save);
 
   var intro = document.getElementById("intro");
   document.getElementById("go").addEventListener("click", function () { intro.hidden = true; cv.focus({ preventScroll: true }); });
 
   /* ---------- loop ---------- */
-  var last = performance.now();
+  var coords = document.getElementById("coords"), last = performance.now(), fc = 0;
   function frame(now) {
     var dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     update(dt);
+    trackPlayerChunk();
+    pump(5);
     var h = pick();
     if (h) { hl.visible = true; hl.position.set(h.x + 0.5, h.y + 0.5, h.z + 0.5); } else hl.visible = false;
+    if ((fc++ & 7) === 0) coords.textContent = "X " + Math.floor(P.x) + "  Y " + Math.floor(P.y) + "  Z " + Math.floor(P.z);
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
   }
