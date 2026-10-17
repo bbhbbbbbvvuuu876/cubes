@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blue Voxel Buttons Preview</title>
+<link rel="stylesheet" href="./blue-voxel-buttons.css">
+<style>
+body{margin:0;min-height:100vh;background:linear-gradient(140deg,#8cc7e8,#3e6d88 50%,#162d42);font-family:system-ui,sans-serif;color:white;display:grid;place-items:center}
+.demo{width:min(92vw,700px);padding:24px;background:rgba(4,19,31,.4);border:1px solid #d8f4ff;border-radius:12px}
+h1{font-size:22px}.row{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin:20px 0}
+.caption{font-size:13px;opacity:.8}
+</style>
+</head>
+<body>
+<main class="demo">
+<h1>أزرار زرقاء للعبة المكعبات</h1>
+<div class="row">
+<button class="blue-voxel-btn">بناء</button>
+<button class="blue-voxel-btn">حفر</button>
+<button class="blue-voxel-btn blue-voxel-btn--primary">طيران</button>
+</div>
+<div class="row">
+<button class="blue-voxel-btn blue-voxel-btn--wide">قفز</button>
+<button class="blue-voxel-btn blue-voxel-btn--wide">نزول</button>
+<button class="blue-voxel-btn blue-voxel-btn--wallet">المتجر والمحفظة</button>
+</div>
+<div class="row">
+<div class="blue-voxel-joystick"><div class="blue-voxel-joystick__knob"></div></div>
+<div class="blue-voxel-hotbar">
+<div class="blue-voxel-slot">🟩</div><div class="blue-voxel-slot">🟫</div><div class="blue-voxel-slot">⬜</div><div class="blue-voxel-slot is-selected">🪵</div>
+</div>
+</div>
+<p class="caption">هذه صفحة معاينة فقط. لا تغيّر مشروع لعبتك حتى تضيف ملف CSS إلى ملفات المشروع وتربط الأصناف بالأزرار الموجودة.</p>
+</main>
+</body>
+</html>
