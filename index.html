@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#8ec5ee">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="المكعبات">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>عالم المكعبات</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@500;800&display=swap">
+<style>
+/* Layout: full-screen voxel viewport, HUD layered on top (hotbar bottom-centre, touch pad bottom corners). */
+:root {
+  --sky: #8ec5ee;
+  --ink: #1c2118;
+  --panel: rgba(28, 33, 24, 0.68);
+  --paper: #f3f0e6;
+  --grass: #8fd14f;
+  --dirt: #86604a;
+  --font: "Tajawal", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; margin: 0; overscroll-behavior: none; }
+body {
+  background: var(--sky);
+  color: var(--paper);
+  font-family: var(--font);
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+#app { position: fixed; inset: 0; width: 100%; height: 100%; overflow: hidden; background: var(--sky); }
+canvas#view { display: block; width: 100%; height: 100%; touch-action: none; outline: none; }
+
+.cross { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; transform: translate(-50%, -50%); pointer-events: none; }
+.cross::before, .cross::after { content: ""; position: absolute; background: #fff; mix-blend-mode: difference; }
+.cross::before { left: 10px; top: 2px; width: 2px; height: 18px; }
+.cross::after { top: 10px; left: 2px; height: 2px; width: 18px; }
+
+.hud-bottom {
+  position: absolute; left: 0; right: 0; bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  pointer-events: none;
+}
+.bname {
+  font-weight: 800; font-size: 15px; background: var(--panel); border: 2px solid var(--paper);
+  padding: 2px 12px; min-width: 64px; text-align: center;
+}
+.hotbar { display: flex; gap: 4px; padding: 4px; background: var(--panel); border: 3px solid var(--ink); box-shadow: 0 0 0 2px var(--paper) inset; pointer-events: auto; max-width: 100%; }
+.slot {
+  width: clamp(34px, 10.4vw, 46px); aspect-ratio: 1; border: 3px solid rgba(243, 240, 230, 0.28);
+  background: rgba(0, 0, 0, 0.3); padding: 2px; display: block; cursor: pointer;
+}
+.slot canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+.slot.on { border-color: var(--paper); background: rgba(255, 255, 255, 0.18); }
+.slot:focus-visible { outline: 3px solid var(--grass); outline-offset: 1px; }
+
+.pad { position: absolute; bottom: calc(92px + env(safe-area-inset-bottom, 0px)); display: none; }
+.touch .pad { display: block; }
+.pad-l { left: max(16px, env(safe-area-inset-left, 0px)); }
+.pad-r { right: max(16px, env(safe-area-inset-right, 0px)); }
+#stick { width: 128px; height: 128px; border-radius: 50%; background: var(--panel); border: 3px solid rgba(243, 240, 230, 0.6); position: relative; touch-action: none; }
+#knob { position: absolute; left: 40px; top: 40px; width: 48px; height: 48px; border-radius: 50%; background: var(--paper); opacity: 0.85; pointer-events: none; }
+.btns { display: grid; grid-template-columns: 64px 64px; gap: 10px; }
+.btn {
+  height: 58px; border: 3px solid var(--ink); background: var(--panel); color: var(--paper);
+  font: 800 16px var(--font); box-shadow: 0 0 0 2px var(--paper) inset, 3px 3px 0 var(--ink);
+  touch-action: none; cursor: pointer; padding: 0;
+}
+.btn:active, .btn.on { background: var(--grass); color: var(--ink); }
+.btn.wide { grid-column: span 2; height: 64px; }
+.btn:focus-visible { outline: 3px solid var(--grass); outline-offset: 2px; }
+#down { display: none; }
+.flying #down { display: block; }
+
+.top {
+  position: absolute; top: calc(10px + env(safe-area-inset-top, 0px)); right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; gap: 8px;
+}
+.top .btn { height: 40px; padding: 0 14px; font-size: 15px; }
+
+.card {
+  position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%);
+  width: min(340px, calc(100% - 32px)); background: var(--panel); border: 3px solid var(--ink);
+  box-shadow: 0 0 0 2px var(--paper) inset, 6px 6px 0 rgba(28, 33, 24, 0.5);
+  padding: 18px 18px 16px; backdrop-filter: blur(3px);
+}
+.card h1 { margin: 0 0 8px; font-size: 30px; font-weight: 800; line-height: 1.1; text-wrap: balance; }
+.card p { margin: 0 0 6px; font-size: 15px; line-height: 1.5; font-weight: 500; }
+.card .btn { width: 100%; margin-top: 10px; height: 46px; }
+.card[hidden] { display: none; }
+@media (prefers-reduced-motion: no-preference) { .card { animation: rise 0.35s ease-out; } }
+@keyframes rise { from { opacity: 0; transform: translate(-50%, -46%); } to { opacity: 1; transform: translate(-50%, -50%); } }
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="view" tabindex="0"></canvas>
+  <div class="cross"></div>
+
+  <div class="top">
+    <button class="btn" id="flyBtn" type="button">طيران</button>
+  </div>
+
+  <div class="pad pad-l"><div id="stick"><div id="knob"></div></div></div>
+  <div class="pad pad-r">
+    <div class="btns">
+      <button class="btn" id="brk" type="button">حفر</button>
+      <button class="btn" id="plc" type="button">بناء</button>
+      <button class="btn wide" id="jmp" type="button">قفز</button>
+      <button class="btn wide" id="down" type="button">نزول</button>
+    </div>
+  </div>
+
+  <div class="hud-bottom">
+    <div class="bname" id="bname">عشب</div>
+    <div class="hotbar" id="hotbar"></div>
+  </div>
+
+  <div class="card" id="intro">
+    <h1>عالم المكعبات</h1>
+    <p id="help"></p>
+    <button class="btn" id="go" type="button">ابدأ اللعب</button>
+  </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+  var W = 64, D = 64, H = 32, CS = 16, NCX = W / CS, NCZ = D / CS;
+  var world = new Uint8Array(W * H * D);
+
+  function get(x, y, z) {
+    if (y < 0) return 3;
+    if (x < 0 || z < 0 || x >= W || z >= D || y >= H) return 0;
+    return world[x + W * (z + D * y)];
+  }
+  function put(x, y, z, b) { world[x + W * (z + D * y)] = b; }
+  function solid(x, y, z) {
+    if (y < 0) return true;
+    if (x < 0 || z < 0 || x >= W || z >= D) return true;
+    if (y >= H) return false;
+    return world[x + W * (z + D * y)] > 0;
+  }
+
+  /* ---------- terrain ---------- */
+  function hash(x, z, s) {
+    var h = Math.imul(x, 374761393) + Math.imul(z, 668265263) + Math.imul(s | 0, 144665);
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
+  }
+  function vnoise(x, z, s) {
+    var xi = Math.floor(x), zi = Math.floor(z), xf = x - xi, zf = z - zi;
+    var u = xf * xf * (3 - 2 * xf), v = zf * zf * (3 - 2 * zf);
+    var a = hash(xi, zi, s), b = hash(xi + 1, zi, s), c = hash(xi, zi + 1, s), d = hash(xi + 1, zi + 1, s);
+    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+  }
+  function fbm(x, z, s) { return vnoise(x, z, s) * 0.6 + vnoise(x * 2.1, z * 2.1, s + 1) * 0.28 + vnoise(x * 4.3, z * 4.3, s + 2) * 0.12; }
+
+  var heights = [];
+  for (var x = 0; x < W; x++) {
+    heights[x] = [];
+    for (var z = 0; z < D; z++) {
+      var h = Math.floor(7 + fbm(x / 20, z / 20, 11) * 15);
+      h = Math.max(3, Math.min(H - 9, h));
+      heights[x][z] = h;
+      var sandy = h <= 10;
+      for (var y = 0; y <= h; y++) {
+        var b = 3;
+        if (y === h) b = sandy ? 7 : 1;
+        else if (y > h - 4) b = sandy ? 7 : 2;
+        put(x, y, z, b);
+      }
+    }
+  }
+  for (var tx = 3; tx < W - 3; tx++) {
+    for (var tz = 3; tz < D - 3; tz++) {
+      if (hash(tx, tz, 99) < 0.012 && get(tx, heights[tx][tz], tz) === 1) {
+        var th = 4 + Math.floor(hash(tx, tz, 5) * 2), base = heights[tx][tz] + 1;
+        for (var ly = base - 2 + th - 1; ly <= base + th; ly++) {
+          var r = ly >= base + th - 1 ? 1 : 2;
+          for (var dx = -r; dx <= r; dx++) for (var dz = -r; dz <= r; dz++) {
+            if (r === 2 && Math.abs(dx) === 2 && Math.abs(dz) === 2) continue;
+            if (ly < H && get(tx + dx, ly, tz + dz) === 0) put(tx + dx, ly, tz + dz, 5);
+          }
+        }
+        for (var t = 0; t < th; t++) put(tx, base + t, tz, 4);
+      }
+    }
+  }
+
+  /* ---------- texture atlas ---------- */
+  var T = 16, NT = 10;
+  var atlas = document.createElement("canvas");
+  atlas.width = T * NT; atlas.height = T;
+  var actx = atlas.getContext("2d");
+  var seed = 12345;
+  function rnd() { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }
+  function col(c, k) {
+    var f = function (v) { return Math.max(0, Math.min(255, v * k)) | 0; };
+    return "rgb(" + f(c[0]) + "," + f(c[1]) + "," + f(c[2]) + ")";
+  }
+  function px(t, x, y, c) { actx.fillStyle = c; actx.fillRect(t * T + x, y, 1, 1); }
+  function fill(t, base, v) { for (var y = 0; y < T; y++) for (var x = 0; x < T; x++) px(t, x, y, col(base, 1 + (rnd() - 0.5) * v)); }
+  var GR = [104, 170, 58], DI = [134, 96, 67];
+  fill(0, GR, 0.35);
+  fill(1, DI, 0.35);
+  for (var gy = 0; gy < 5; gy++) for (var gx = 0; gx < T; gx++) if (gy < 3 || rnd() < 0.5) px(1, gx, gy, col(GR, 1 + (rnd() - 0.5) * 0.35));
+  fill(2, DI, 0.35);
+  fill(3, [128, 128, 128], 0.3);
+  for (var s = 0; s < 18; s++) px(3, Math.floor(rnd() * T), Math.floor(rnd() * T), col([128, 128, 128], 0.7));
+  fill(4, [102, 78, 46], 0.2);
+  for (var wx = 1; wx < T; wx += 4) for (var wy = 0; wy < T; wy++) px(4, wx, wy, col([102, 78, 46], 0.72));
+  fill(5, [170, 136, 84], 0.15);
+  for (var ry = 0; ry < T; ry++) for (var rx = 0; rx < T; rx++) {
+    var dd = Math.max(Math.abs(rx - 7.5), Math.abs(ry - 7.5));
+    if (dd >= 7) px(5, rx, ry, col([102, 78, 46], 0.9));
+    else if (Math.floor(dd) % 3 === 2) px(5, rx, ry, col([170, 136, 84], 0.75));
+  }
+  fill(6, [54, 132, 48], 0.5);
+  for (var lh = 0; lh < 22; lh++) px(6, Math.floor(rnd() * T), Math.floor(rnd() * T), col([30, 86, 30], 1));
+  fill(7, [176, 140, 86], 0.18);
+  for (var py = 3; py < T; py += 4) for (var pxx = 0; pxx < T; pxx++) px(7, pxx, py, col([176, 140, 86], 0.7));
+  for (var pr = 0; pr < 4; pr++) px(7, (pr * 5 + 3) % T, pr * 4 + 1, col([176, 140, 86], 0.7));
+  fill(8, [222, 208, 150], 0.2);
+  fill(9, [160, 76, 60], 0.25);
+  for (var by = 0; by < T; by++) for (var bx = 0; bx < T; bx++) {
+    var row = Math.floor(by / 4);
+    if (by % 4 === 3 || bx % 8 === (row % 2 ? 0 : 4)) px(9, bx, by, col([200, 196, 186], 1 + (rnd() - 0.5) * 0.1));
+  }
+
+  var tex = new THREE.CanvasTexture(atlas);
+  tex.magFilter = THREE.NearestFilter;
+  tex.minFilter = THREE.NearestFilter;
+  tex.generateMipmaps = false;
+
+  var B = {
+    1: { top: 0, side: 1, bottom: 2, name: "عشب" },
+    2: { top: 2, side: 2, bottom: 2, name: "تراب" },
+    3: { top: 3, side: 3, bottom: 3, name: "حجر" },
+    4: { top: 5, side: 4, bottom: 5, name: "خشب" },
+    5: { top: 6, side: 6, bottom: 6, name: "أوراق" },
+    6: { top: 7, side: 7, bottom: 7, name: "ألواح" },
+    7: { top: 8, side: 8, bottom: 8, name: "رمل" },
+    8: { top: 9, side: 9, bottom: 9, name: "طوب" }
+  };
+  var HOT = [1, 2, 3, 4, 6, 5, 7, 8];
+
+  /* ---------- chunk meshing ---------- */
+  var FACES = [
+    { d: [1, 0, 0], c: [[1, 0, 1], [1, 0, 0], [1, 1, 0], [1, 1, 1]], s: 0.82, k: "s" },
+    { d: [-1, 0, 0], c: [[0, 0, 0], [0, 0, 1], [0, 1, 1], [0, 1, 0]], s: 0.82, k: "s" },
+    { d: [0, 1, 0], c: [[0, 1, 1], [1, 1, 1], [1, 1, 0], [0, 1, 0]], s: 1.0, k: "t" },
+    { d: [0, -1, 0], c: [[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1]], s: 0.5, k: "b" },
+    { d: [0, 0, 1], c: [[0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]], s: 0.92, k: "s" },
+    { d: [0, 0, -1], c: [[1, 0, 0], [0, 0, 0], [0, 1, 0], [1, 1, 0]], s: 0.7, k: "s" }
+  ];
+  var mat = new THREE.MeshBasicMaterial({ map: tex, vertexColors: true });
+  var scene = new THREE.Scene();
+  var chunkMesh = {};
+
+  function buildChunk(cx, cz) {
+    var key = cx + "," + cz;
+    if (chunkMesh[key]) { scene.remove(chunkMesh[key]); chunkMesh[key].geometry.dispose(); delete chunkMesh[key]; }
+    var pos = [], uv = [], cl = [], ind = [], n = 0;
+    for (var y = 0; y < H; y++) for (var z = cz * CS; z < cz * CS + CS; z++) for (var x = cx * CS; x < cx * CS + CS; x++) {
+      var b = get(x, y, z);
+      if (!b) continue;
+      var def = B[b];
+      for (var fi = 0; fi < 6; fi++) {
+        var f = FACES[fi];
+        if (get(x + f.d[0], y + f.d[1], z + f.d[2])) continue;
+        var tile = f.k === "t" ? def.top : f.k === "b" ? def.bottom : def.side;
+        var u0 = tile / NT + 0.0006, u1 = (tile + 1) / NT - 0.0006;
+        for (var i = 0; i < 4; i++) {
+          var c = f.c[i];
+          pos.push(x + c[0], y + c[1], z + c[2]);
+          uv.push(i === 0 || i === 3 ? u0 : u1, i < 2 ? 0 : 1);
+          cl.push(f.s, f.s, f.s);
+        }
+        ind.push(n, n + 1, n + 2, n, n + 2, n + 3);
+        n += 4;
+      }
+    }
+    var g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+    g.setAttribute("color", new THREE.Float32BufferAttribute(cl, 3));
+    g.setIndex(ind);
+    g.computeBoundingSphere();
+    var m = new THREE.Mesh(g, mat);
+    chunkMesh[key] = m;
+    scene.add(m);
+  }
+
+  function setBlock(x, y, z, b) {
+    if (x < 0 || z < 0 || x >= W || z >= D || y < 1 || y >= H) return;
+    put(x, y, z, b);
+    var cx = Math.floor(x / CS), cz = Math.floor(z / CS);
+    buildChunk(cx, cz);
+    var lx = x - cx * CS, lz = z - cz * CS;
+    if (lx === 0 && cx > 0) buildChunk(cx - 1, cz);
+    if (lx === CS - 1 && cx < NCX - 1) buildChunk(cx + 1, cz);
+    if (lz === 0 && cz > 0) buildChunk(cx, cz - 1);
+    if (lz === CS - 1 && cz < NCZ - 1) buildChunk(cx, cz + 1);
+  }
+
+  /* ---------- renderer ---------- */
+  var app = document.getElementById("app");
+  var cv = document.getElementById("view");
+  var renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: false });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  var SKY = 0x8ec5ee;
+  scene.background = new THREE.Color(SKY);
+  scene.fog = new THREE.Fog(SKY, 26, 58);
+  var camera = new THREE.PerspectiveCamera(72, 1, 0.05, 120);
+  camera.rotation.order = "YXZ";
+
+  function resize() {
+    var w = app.clientWidth || 360, h = app.clientHeight || 640;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  if (window.ResizeObserver) new ResizeObserver(resize).observe(app);
+  window.addEventListener("resize", resize);
+  resize();
+
+  for (var ccx = 0; ccx < NCX; ccx++) for (var ccz = 0; ccz < NCZ; ccz++) buildChunk(ccx, ccz);
+
+  var hl = new THREE.LineSegments(
+    new THREE.EdgesGeometry(new THREE.BoxGeometry(1.004, 1.004, 1.004)),
+    new THREE.LineBasicMaterial({ color: 0x000000 })
+  );
+  hl.visible = false;
+  scene.add(hl);
+
+  /* ---------- player ---------- */
+  var P = { x: W / 2 + 0.5, y: 0, z: D / 2 + 0.5, vy: 0, ground: false, yaw: 0.6, pitch: -0.25, fly: false };
+  (function spawn() {
+    var sx = Math.floor(P.x), sz = Math.floor(P.z), yy = H - 1;
+    while (yy > 0 && !solid(sx, yy, sz)) yy--;
+    P.y = yy + 1.01;
+  })();
+
+  function hits(px, py, pz) {
+    var x0 = Math.floor(px - 0.3), x1 = Math.floor(px + 0.3), y0 = Math.floor(py), y1 = Math.floor(py + 1.8), z0 = Math.floor(pz - 0.3), z1 = Math.floor(pz + 0.3);
+    for (var y = y0; y <= y1; y++) for (var z = z0; z <= z1; z++) for (var x = x0; x <= x1; x++) if (solid(x, y, z)) return true;
+    return false;
+  }
+
+  var inp = { fx: 0, fy: 0, jump: false, down: false };
+  var keys = {};
+
+  function update(dt) {
+    var ix = inp.fx, iy = inp.fy;
+    if (keys.KeyA || keys.ArrowLeft) ix -= 1;
+    if (keys.KeyD || keys.ArrowRight) ix += 1;
+    if (keys.KeyW || keys.ArrowUp) iy += 1;
+    if (keys.KeyS || keys.ArrowDown) iy -= 1;
+    var len = Math.hypot(ix, iy);
+    if (len > 1) { ix /= len; iy /= len; }
+    var sp = P.fly ? 9 : 4.6;
+    var sn = Math.sin(P.yaw), cs = Math.cos(P.yaw);
+    var vx = (-sn * iy + cs * ix) * sp, vz = (-cs * iy - sn * ix) * sp;
+    var jmp = inp.jump || keys.Space, dwn = inp.down || keys.ShiftLeft || keys.ShiftRight;
+
+    if (P.fly) {
+      P.vy = ((jmp ? 1 : 0) - (dwn ? 1 : 0)) * 7;
+    } else {
+      P.vy = Math.max(P.vy - 24 * dt, -30);
+      if (jmp && P.ground) { P.vy = 7.8; P.ground = false; }
+    }
+    var nx = P.x + vx * dt; if (!hits(nx, P.y, P.z)) P.x = nx;
+    var nz = P.z + vz * dt; if (!hits(P.x, P.y, nz)) P.z = nz;
+    var ny = P.y + P.vy * dt;
+    if (!hits(P.x, ny, P.z)) { P.y = ny; P.ground = false; }
+    else { if (P.vy < 0) P.ground = true; P.vy = 0; }
+    if (P.y < -10 || P.y > H + 40) { P.y = H; P.vy = 0; }
+    camera.position.set(P.x, P.y + 1.62, P.z);
+    camera.rotation.set(P.pitch, P.yaw, 0);
+  }
+
+  /* ---------- picking ---------- */
+  function pick() {
+    var ox = P.x, oy = P.y + 1.62, oz = P.z;
+    var cp = Math.cos(P.pitch);
+    var dx = -Math.sin(P.yaw) * cp, dy = Math.sin(P.pitch), dz = -Math.cos(P.yaw) * cp;
+    var x = Math.floor(ox), y = Math.floor(oy), z = Math.floor(oz);
+    var sx = dx > 0 ? 1 : -1, sy = dy > 0 ? 1 : -1, sz = dz > 0 ? 1 : -1;
+    var tdx = dx === 0 ? Infinity : Math.abs(1 / dx), tdy = dy === 0 ? Infinity : Math.abs(1 / dy), tdz = dz === 0 ? Infinity : Math.abs(1 / dz);
+    var tmx = dx === 0 ? Infinity : (dx > 0 ? x + 1 - ox : ox - x) * tdx;
+    var tmy = dy === 0 ? Infinity : (dy > 0 ? y + 1 - oy : oy - y) * tdy;
+    var tmz = dz === 0 ? Infinity : (dz > 0 ? z + 1 - oz : oz - z) * tdz;
+    var nx = 0, ny = 0, nz = 0, t = 0;
+    while (t <= 6) {
+      if (tmx < tmy && tmx < tmz) { x += sx; t = tmx; tmx += tdx; nx = -sx; ny = 0; nz = 0; }
+      else if (tmy < tmz) { y += sy; t = tmy; tmy += tdy; nx = 0; ny = -sy; nz = 0; }
+      else { z += sz; t = tmz; tmz += tdz; nx = 0; ny = 0; nz = -sz; }
+      if (t > 6) break;
+      if (get(x, y, z) > 0) return { x: x, y: y, z: z, nx: nx, ny: ny, nz: nz };
+    }
+    return null;
+  }
+
+  var sel = 0;
+  function doBreak() {
+    var h = pick();
+    if (h && h.y > 0) setBlock(h.x, h.y, h.z, 0);
+  }
+  function doPlace() {
+    var h = pick();
+    if (!h) return;
+    var x = h.x + h.nx, y = h.y + h.ny, z = h.z + h.nz;
+    if (get(x, y, z) || y < 1 || y >= H) return;
+    put(x, y, z, HOT[sel]);
+    if (hits(P.x, P.y, P.z)) { put(x, y, z, 0); return; }
+    put(x, y, z, 0);
+    setBlock(x, y, z, HOT[sel]);
+  }
+
+  /* ---------- hotbar ---------- */
+  var hb = document.getElementById("hotbar"), bname = document.getElementById("bname"), slots = [];
+  HOT.forEach(function (id, i) {
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "slot"; b.setAttribute("aria-label", B[id].name);
+    var c = document.createElement("canvas"); c.width = 16; c.height = 16;
+    var cx2 = c.getContext("2d"); cx2.imageSmoothingEnabled = false;
+    cx2.drawImage(atlas, B[id].side * T, 0, T, T, 0, 0, 16, 16);
+    b.appendChild(c);
+    b.addEventListener("pointerdown", function (e) { e.preventDefault(); select(i); });
+    hb.appendChild(b); slots.push(b);
+  });
+  function select(i) {
+    sel = (i + HOT.length) % HOT.length;
+    slots.forEach(function (s, k) { s.classList.toggle("on", k === sel); });
+    bname.textContent = B[HOT[sel]].name;
+  }
+  select(0);
+
+  /* ---------- input ---------- */
+  var isTouch = ("ontouchstart" in window) || navigator.maxTouchPoints > 0;
+  if (isTouch) app.classList.add("touch");
+  document.getElementById("help").textContent = isTouch
+    ? "اسحب على الشاشة للنظر حولك. استخدم العصا للمشي وزر القفز للصعود. اضغط حفر لهدم المكعب وبناء لوضع مكعب جديد."
+    : "اضغط على الشاشة لبدء التحكم. WASD للمشي، مسافة للقفز، نقرة يسار للحفر ونقرة يمين للبناء، وأرقام 1 إلى 8 أو العجلة لاختيار المكعب. F للطيران.";
+
+  document.addEventListener("keydown", function (e) {
+    keys[e.code] = true;
+    if (e.code === "KeyF") toggleFly();
+    var n = parseInt(e.key, 10);
+    if (n >= 1 && n <= 8) select(n - 1);
+    if (e.code === "Space" || e.code.indexOf("Arrow") === 0) e.preventDefault();
+  });
+  document.addEventListener("keyup", function (e) { keys[e.code] = false; });
+  window.addEventListener("blur", function () { keys = {}; });
+  cv.addEventListener("wheel", function (e) { e.preventDefault(); select(sel + (e.deltaY > 0 ? 1 : -1)); }, { passive: false });
+  cv.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+
+  function look(dx, dy, k) {
+    P.yaw -= dx * k;
+    P.pitch = Math.max(-1.5, Math.min(1.5, P.pitch - dy * k));
+  }
+  document.addEventListener("mousemove", function (e) {
+    if (document.pointerLockElement === cv) look(e.movementX, e.movementY, 0.0025);
+  });
+
+  var ptr = new Map();
+  cv.addEventListener("pointerdown", function (e) {
+    ptr.set(e.pointerId, { x: e.clientX, y: e.clientY, moved: 0, t: performance.now(), b: e.button, type: e.pointerType });
+    try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+    cv.focus({ preventScroll: true });
+    if (e.pointerType === "mouse" && !document.pointerLockElement && cv.requestPointerLock) {
+      try { var r = cv.requestPointerLock(); if (r && r.catch) r.catch(function () {}); } catch (err) {}
+    }
+  });
+  cv.addEventListener("pointermove", function (e) {
+    var p = ptr.get(e.pointerId);
+    if (!p || document.pointerLockElement === cv) return;
+    var dx = e.clientX - p.x, dy = e.clientY - p.y;
+    p.x = e.clientX; p.y = e.clientY; p.moved += Math.abs(dx) + Math.abs(dy);
+    look(dx, dy, p.type === "touch" ? 0.0055 : 0.0028);
+  });
+  function up(e) {
+    var p = ptr.get(e.pointerId);
+    if (!p) return;
+    ptr.delete(e.pointerId);
+    if (e.type === "pointerup" && p.moved < 9 && performance.now() - p.t < 380) {
+      if (p.type !== "touch" && p.b === 2) doPlace(); else doBreak();
+    }
+  }
+  cv.addEventListener("pointerup", up);
+  cv.addEventListener("pointercancel", up);
+
+  // joystick
+  var stick = document.getElementById("stick"), knob = document.getElementById("knob"), sid = null;
+  function stickMove(e) {
+    var r = stick.getBoundingClientRect();
+    var dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+    var m = Math.hypot(dx, dy), R = 44;
+    if (m > R) { dx = dx / m * R; dy = dy / m * R; }
+    knob.style.transform = "translate(" + dx + "px," + dy + "px)";
+    var nx = dx / R, ny = dy / R;
+    inp.fx = Math.abs(nx) < 0.12 ? 0 : nx;
+    inp.fy = Math.abs(ny) < 0.12 ? 0 : -ny;
+  }
+  function stickEnd() { sid = null; inp.fx = 0; inp.fy = 0; knob.style.transform = "translate(0,0)"; }
+  stick.addEventListener("pointerdown", function (e) { sid = e.pointerId; try { stick.setPointerCapture(sid); } catch (err) {} stickMove(e); });
+  stick.addEventListener("pointermove", function (e) { if (e.pointerId === sid) stickMove(e); });
+  stick.addEventListener("pointerup", stickEnd);
+  stick.addEventListener("pointercancel", stickEnd);
+
+  // buttons
+  function hold(el, on, off, rep) {
+    var timer = null;
+    el.addEventListener("pointerdown", function (e) {
+      e.preventDefault(); on();
+      if (rep) timer = setInterval(on, rep);
+    });
+    function end() { if (timer) { clearInterval(timer); timer = null; } if (off) off(); }
+    el.addEventListener("pointerup", end);
+    el.addEventListener("pointerleave", end);
+    el.addEventListener("pointercancel", end);
+  }
+  hold(document.getElementById("brk"), doBreak, null, 260);
+  hold(document.getElementById("plc"), doPlace, null, 0);
+  hold(document.getElementById("jmp"), function () { inp.jump = true; }, function () { inp.jump = false; });
+  hold(document.getElementById("down"), function () { inp.down = true; }, function () { inp.down = false; });
+
+  var flyBtn = document.getElementById("flyBtn");
+  function toggleFly() {
+    P.fly = !P.fly;
+    flyBtn.classList.toggle("on", P.fly);
+    app.classList.toggle("flying", P.fly);
+  }
+  flyBtn.addEventListener("click", toggleFly);
+
+  var intro = document.getElementById("intro");
+  document.getElementById("go").addEventListener("click", function () { intro.hidden = true; cv.focus({ preventScroll: true }); });
+
+  /* ---------- loop ---------- */
+  var last = performance.now();
+  function frame(now) {
+    var dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    update(dt);
+    var h = pick();
+    if (h) { hl.visible = true; hl.position.set(h.x + 0.5, h.y + 0.5, h.z + 0.5); } else hl.visible = false;
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
+}
+</script>
+</body>
+</html>
