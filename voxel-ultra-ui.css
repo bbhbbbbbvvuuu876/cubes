@@ -1,0 +1,42 @@
+/* Voxel Ultra UI — original design, inspired by modern mobile sandbox controls */
+:root {
+  --vu-panel: rgba(17, 28, 25, .76);
+  --vu-panel2: rgba(29, 46, 39, .90);
+  --vu-border: #e8eadb;
+  --vu-shadow: #101710;
+  --vu-accent: #9fe45f;
+  --vu-text: #fffdf1;
+}
+.vu-ui, .vu-ui * { box-sizing: border-box; }
+.vu-button, button.vu-button {
+  appearance: none; border: 3px solid var(--vu-shadow);
+  outline: 2px solid var(--vu-border);
+  background: linear-gradient(180deg, rgba(64,91,72,.96), rgba(23,48,32,.96));
+  color: var(--vu-text); text-shadow: 0 2px 2px #172319;
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.17), 0 4px 0 rgba(0,0,0,.35);
+  border-radius: 7px; padding: .72em 1em; min-height: 46px;
+  font: 700 16px/1.1 system-ui, sans-serif; cursor: pointer;
+  transition: transform .12s ease, filter .12s ease, background .12s ease;
+}
+.vu-button:hover { filter: brightness(1.14); }
+.vu-button:active { transform: translateY(2px) scale(.985); }
+.vu-button.vu-primary {
+  background: linear-gradient(180deg, #b4f47c, #72c83d); color: #193017;
+  text-shadow: none;
+}
+.vu-panel {
+  background: var(--vu-panel); color: var(--vu-text);
+  border: 2px solid rgba(255,255,255,.85); border-radius: 10px;
+  box-shadow: 0 5px 18px rgba(0,0,0,.35), inset 0 0 0 2px rgba(0,0,0,.45);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+.vu-hotbar { display:flex; gap:5px; padding:7px; background:var(--vu-panel); border:3px solid #182019; outline:2px solid #f4f0db; border-radius:8px; }
+.vu-slot { width:clamp(38px,6vw,68px); aspect-ratio:1; display:grid; place-items:center; border:3px solid #1a211a; background:rgba(255,255,255,.08); }
+.vu-slot img { width:88%; height:88%; object-fit:cover; image-rendering:pixelated; }
+.vu-slot.is-selected { outline:3px solid #fff4c8; background:rgba(159,228,95,.23); transform:translateY(-2px); }
+.vu-wallet { display:inline-flex; align-items:center; gap:.55em; }
+.vu-wallet::before { content:""; width:1.25em; height:.9em; border:2px solid currentColor; border-radius:3px; display:inline-block; box-shadow:inset 0 -4px 0 rgba(255,255,255,.15); }
+@media (max-width:600px) {
+  .vu-button, button.vu-button { min-height:42px; padding:.65em .8em; font-size:14px; }
+  .vu-hotbar { gap:3px; padding:5px; }
+}
