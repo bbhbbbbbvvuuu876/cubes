@@ -71,11 +71,14 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
 #knob { position: absolute; left: 40px; top: 40px; width: 48px; height: 48px; border-radius: 50%; background: var(--paper); opacity: 0.85; pointer-events: none; }
 .btns { display: grid; grid-template-columns: 64px 64px; gap: 10px; }
 .btn {
-  height: 58px; border: 3px solid var(--ink); background: var(--panel); color: var(--paper);
-  font: 800 16px var(--font); box-shadow: 0 0 0 2px var(--paper) inset, 3px 3px 0 var(--ink);
+  height: 58px; border: 3px solid #111; background: #8d8d8d; color: #fff;
+  font: 800 16px var(--font); text-shadow: 2px 2px 0 #3b3b3b;
+  box-shadow: inset 3px 3px 0 #d0d0d0, inset -3px -3px 0 #5a5a5a;
   touch-action: none; cursor: pointer; padding: 0;
 }
-.btn:active, .btn.on { background: var(--grass); color: var(--ink); }
+.btn:hover { background: #9b9b9b; }
+.btn:active, .btn.on { background: #5f8f35; box-shadow: inset 3px 3px 0 #9ad25f, inset -3px -3px 0 #3a5f1e; }
+.pad .btn { opacity: 0.9; }
 .btn.wide { grid-column: span 2; height: 64px; }
 .btn:focus-visible { outline: 3px solid var(--grass); outline-offset: 2px; }
 #down { display: none; }
@@ -104,6 +107,46 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
 .card[hidden] { display: none; }
 @media (prefers-reduced-motion: no-preference) { .card { animation: rise 0.35s ease-out; } }
 @keyframes rise { from { opacity: 0; transform: translate(-50%, -46%); } to { opacity: 1; transform: translate(-50%, -50%); } }
+
+/* title screen and menus */
+.mcb { width: min(320px, 84vw); height: 52px; font-size: 20px; }
+.screen {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: safe center;
+  gap: 12px; overflow: auto; text-align: center;
+  padding-block: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.screen[hidden] { display: none; }
+#intro { background: linear-gradient(180deg, rgba(8, 14, 30, 0.25) 0%, rgba(8, 14, 30, 0.05) 45%, rgba(8, 14, 30, 0.62) 100%); }
+.screen.dim { background: rgba(0, 0, 0, 0.5); }
+.logo {
+  display: flex; flex-direction: column; align-items: center; line-height: 1.02; font-weight: 800;
+  font-size: clamp(46px, 16vw, 88px); margin-bottom: 4px;
+}
+.logo span { paint-order: stroke fill; -webkit-text-stroke: 7px #14180f; }
+.logo .l1 { color: #ece7d3; text-shadow: 0 5px 0 #7b7766, 0 10px 0 #54524a, 0 15px 0 #2d2c27, 0 22px 18px rgba(0, 0, 0, 0.45); }
+.logo .l2 { color: #9be05a; text-shadow: 0 5px 0 #56932c, 0 10px 0 #3b6d1f, 0 15px 0 #234112, 0 22px 18px rgba(0, 0, 0, 0.45); }
+.splash { margin: 18px 0 8px; color: #ffe14a; font-weight: 800; font-size: 19px; transform: rotate(-3deg); text-shadow: 2px 2px 0 #3f3a00, 0 0 12px rgba(0, 0, 0, 0.5); }
+@media (prefers-reduced-motion: no-preference) { .splash { animation: pulse 1.1s ease-in-out infinite alternate; } }
+@keyframes pulse { from { transform: rotate(-3deg) scale(1); } to { transform: rotate(-3deg) scale(1.1); } }
+.stack { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.small { max-width: 330px; font-size: 13px; line-height: 1.5; font-weight: 500; color: #fff; text-shadow: 1px 1px 0 #000, 0 0 8px rgba(0, 0, 0, 0.8); margin: 4px 0 0; }
+.panelbox {
+  width: min(360px, calc(100% - 8px)); padding: 18px 16px 20px; border: 3px solid #111; box-sizing: border-box;
+  background-color: #4b3727;
+  background-image: linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.55)), var(--dirt, none);
+  background-size: auto, 64px 64px; image-rendering: pixelated;
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.16), 6px 6px 0 rgba(0, 0, 0, 0.5);
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+}
+.panelbox h2 { margin: 0 0 4px; font-size: 26px; font-weight: 800; text-shadow: 3px 3px 0 #000; }
+.panelbox .mcb { width: 100%; }
+.menu .coords, .menu .cross, .menu .hud-bottom, .menu .pad, .menu .top, .menu .hearts, .menu #hurt { display: none !important; }
+@media (max-height: 470px) { .logo { font-size: 40px; flex-direction: row; gap: 12px; } .splash { margin: 6px 0; } .small { display: none; } }
+.hearts { position: absolute; top: calc(42px + env(safe-area-inset-top, 0px)); left: max(16px, env(safe-area-inset-left, 0px)); display: flex; gap: 3px; pointer-events: none; }
+.hearts span { width: 14px; height: 14px; background: #d62c2c; border: 2px solid #111; box-shadow: inset 2px 2px 0 #ff8a8a; }
+.hearts span.e { background: #3a1616; box-shadow: none; }
+#hurt { position: fixed; inset: 0; background: #c00000; opacity: 0; pointer-events: none; z-index: 5; }
 </style>
 </head>
 <body>
@@ -112,10 +155,11 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
   <div class="cross"></div>
 
   <div class="coords" id="coords">X 0 Y 0 Z 0</div>
+  <div class="hearts" id="hearts"></div>
+  <div id="hurt"></div>
   <div class="top">
     <button class="btn" id="flyBtn" type="button">طيران</button>
-    <button class="btn" id="rdBtn" type="button">المسافة 5</button>
-    <button class="btn" id="nwBtn" type="button">عالم جديد</button>
+    <button class="btn" id="menuBtn" type="button">القائمة</button>
   </div>
 
   <div class="pad pad-l"><div id="stick"><div id="knob"></div></div></div>
@@ -133,12 +177,42 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     <div class="hotbar" id="hotbar"></div>
   </div>
 
-  <div class="card" id="intro">
-    <h1>عالم المكعبات</h1>
-    <p>عالم لا نهاية له: كلما مشيت يظهر أمامك عالم جديد. بناؤك يُحفظ تلقائياً.</p>
-    <p id="help"></p>
-    <button class="btn" id="go" type="button">ابدأ اللعب</button>
+  <div class="screen" id="intro">
+    <div class="logo"><span class="l1">عالم</span><span class="l2">المكعبات</span></div>
+    <div class="splash" id="splash"></div>
+    <div class="stack">
+      <button class="btn mcb" id="go" type="button">العب</button>
+      <button class="btn mcb" id="tOpt" type="button">الخيارات</button>
+    </div>
+    <p class="small" id="help"></p>
   </div>
+
+  <div class="screen dim" id="pausemenu" hidden>
+    <div class="panelbox">
+      <h2>اللعبة متوقفة</h2>
+      <button class="btn mcb" id="resume" type="button">متابعة اللعب</button>
+      <button class="btn mcb" id="pOpt" type="button">الخيارات</button>
+      <button class="btn mcb" id="toTitle" type="button">الشاشة الرئيسية</button>
+    </div>
+  </div>
+
+  <div class="screen dim" id="deadscreen" hidden>
+    <div class="panelbox">
+      <h2>لقد سقطت!</h2>
+      <p class="small">هاجمتك الوحوش. ابدأ من جديد وأنت بصحة كاملة.</p>
+      <button class="btn mcb" id="respawn" type="button">انطلق من جديد</button>
+    </div>
+  </div>
+
+  <div class="screen dim" id="opts" hidden>
+    <div class="panelbox">
+      <h2>الخيارات</h2>
+      <button class="btn mcb" id="rdBtn" type="button">مسافة الرؤية: 5</button>
+      <button class="btn mcb" id="nwBtn" type="button">عالم جديد</button>
+      <button class="btn mcb" id="optBack" type="button">تم</button>
+    </div>
+  </div>
+</div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
@@ -174,18 +248,41 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     var h = 24 + (c - 0.5) * 30 + (m - 0.5) * 16 + r * 2 + Math.max(0, c - 0.58) * 70;
     return Math.max(3, Math.min(H - 12, Math.floor(h)));
   }
+  var CAVE_T = 0.72;
+  function hash3(x, y, z, s) {
+    var h = Math.imul(x | 0, 374761393) + Math.imul(y | 0, 1103515245) + Math.imul(z | 0, 668265263) + Math.imul((s + SEED) | 0, 144665);
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
+  }
+  function vnoise3(x, y, z, s) {
+    var xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+    var xf = x - xi, yf = y - yi, zf = z - zi;
+    var u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf), w = zf * zf * (3 - 2 * zf);
+    var c000 = hash3(xi, yi, zi, s), c100 = hash3(xi + 1, yi, zi, s), c010 = hash3(xi, yi + 1, zi, s), c110 = hash3(xi + 1, yi + 1, zi, s);
+    var c001 = hash3(xi, yi, zi + 1, s), c101 = hash3(xi + 1, yi, zi + 1, s), c011 = hash3(xi, yi + 1, zi + 1, s), c111 = hash3(xi + 1, yi + 1, zi + 1, s);
+    var x00 = c000 + (c100 - c000) * u, x10 = c010 + (c110 - c010) * u, x01 = c001 + (c101 - c001) * u, x11 = c011 + (c111 - c011) * u;
+    var y0 = x00 + (x10 - x00) * v, y1 = x01 + (x11 - x01) * v;
+    return y0 + (y1 - y0) * w;
+  }
   function ckey(cx, cz) { return (cx + 100000) * 200000 + (cz + 100000); }
 
   function genChunk(cx, cz) {
-    var d = new Uint8Array(CS * CS * H), x0 = cx * CS, z0 = cz * CS, top = 0, lx, lz, y;
+    var d = new Uint8Array(CS * CS * H), colH = new Uint8Array(CS * CS), x0 = cx * CS, z0 = cz * CS, top = 0, lx, lz, y;
     for (lz = 0; lz < CS; lz++) for (lx = 0; lx < CS; lx++) {
       var h = height(x0 + lx, z0 + lz), sandy = h <= SEA + 1, rocky = h >= 40;
       if (h > top) top = h;
+      colH[lx + CS * lz] = h;
       for (y = 0; y <= h; y++) {
         var b = 3;
         if (y === h) b = sandy ? 7 : rocky ? 3 : 1;
         else if (y > h - 4) b = sandy ? 7 : rocky ? 3 : 2;
         d[lx + CS * (lz + CS * y)] = b;
+      }
+    }
+    for (lz = 0; lz < CS; lz++) for (lx = 0; lx < CS; lx++) {
+      var ch = colH[lx + CS * lz], gx = x0 + lx, gz = z0 + lz;
+      for (y = 3; y <= ch - 3 && y < H; y++) {
+        if (vnoise3(gx / 10, y / 6, gz / 10, 41) > CAVE_T) d[lx + CS * (lz + CS * y)] = 0;
       }
     }
     for (var tx = x0 - 2; tx < x0 + CS + 2; tx++) for (var tz = z0 - 2; tz < z0 + CS + 2; tz++) {
@@ -334,7 +431,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
           var cc = f.c[i];
           pos.push(lx + cc[0], y + cc[1], lz + cc[2]);
           uv.push(i === 0 || i === 3 ? u0 : u1, i < 2 ? 0 : 1);
-          cl.push(f.s, f.s, f.s);
+          var sh = f.s * (y < 22 ? 0.78 : 1); cl.push(sh, sh, sh);
         }
         ind.push(n, n + 1, n + 2, n, n + 2, n + 3);
         n += 4;
@@ -403,7 +500,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     scene.fog.far = R * CS - 6;
     camera.far = R * CS + 40;
     camera.updateProjectionMatrix();
-    rdBtn.textContent = "المسافة " + R;
+    rdBtn.textContent = "مسافة الرؤية: " + R;
   }
   applyRadius();
 
@@ -532,13 +629,14 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
       else if (tmy < tmz) { y += sy; t = tmy; tmy += tdy; nx = 0; ny = -sy; nz = 0; }
       else { z += sz; t = tmz; tmz += tdz; nx = 0; ny = 0; nz = -sz; }
       if (t > 6) break;
-      if (get(x, y, z) > 0) return { x: x, y: y, z: z, nx: nx, ny: ny, nz: nz };
+      if (get(x, y, z) > 0) return { x: x, y: y, z: z, nx: nx, ny: ny, nz: nz, t: t };
     }
     return null;
   }
 
   function doBreak() {
-    var h = pick();
+    var h = pick(), m = mobHit(h ? h.t : 6);
+    if (m) { if (attackCool <= 0) { attackCool = 0.35; hitMob(m); } return; }
     if (h && h.y > 0) setBlock(h.x, h.y, h.z, 0);
   }
   function doPlace() {
@@ -553,6 +651,176 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     if (blocked) return;
     setBlock(x, y, z, HOT[sel]);
   }
+
+  /* ---------- creatures ---------- */
+  var MOBS = [], mobTimer = 0, playerHp = 10, hurtCool = 0, hurtFlash = 0, sinceHurt = 99, regenT = 0, dead = false, attackCool = 0;
+  var heartsEl = document.getElementById("hearts"), hurtEl = document.getElementById("hurt"), heartCells = [];
+  for (var hi = 0; hi < 10; hi++) { var hc = document.createElement("span"); heartsEl.appendChild(hc); heartCells.push(hc); }
+  function renderHearts() {
+    for (var i = 0; i < 10; i++) heartCells[i].className = i < playerHp ? "" : "e";
+  }
+  renderHearts();
+
+  function clearLine(x1, y1, z1, x2, y2, z2) {
+    var dx = x2 - x1, dy = y2 - y1, dz = z2 - z1, n = Math.ceil(Math.sqrt(dx * dx + dy * dy + dz * dz) * 4);
+    for (var i = 1; i < n; i++) {
+      var t = i / n;
+      if (solid(Math.floor(x1 + dx * t), Math.floor(y1 + dy * t), Math.floor(z1 + dz * t))) return false;
+    }
+    return true;
+  }
+  function makeBox(w, h, d, x, y, z, color) {
+    var m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshBasicMaterial({ color: color }));
+    m.position.set(x, y, z);
+    return m;
+  }
+  function buildMob(type) {
+    var g = new THREE.Group(), mats = [];
+    function part(w, h, d, x, y, z, c) { var m = makeBox(w, h, d, x, y, z, c); g.add(m); mats.push(m.material); }
+    if (type === "zombie") {
+      part(0.5, 0.5, 0.5, 0, 1.55, 0, 0x5fae4a);
+      part(0.1, 0.1, 0.02, -0.12, 1.6, 0.26, 0x1a2a10); part(0.1, 0.1, 0.02, 0.12, 1.6, 0.26, 0x1a2a10);
+      part(0.5, 0.75, 0.25, 0, 1.0, 0, 0x2f7fb0);
+      part(0.2, 0.7, 0.2, -0.36, 1.0, 0, 0x5fae4a); part(0.2, 0.7, 0.2, 0.36, 1.0, 0, 0x5fae4a);
+      part(0.22, 0.75, 0.22, -0.13, 0.38, 0, 0x2c3d8a); part(0.22, 0.75, 0.22, 0.13, 0.38, 0, 0x2c3d8a);
+    } else {
+      part(0.5, 0.5, 0.5, 0, 1.55, 0, 0xe6e2d3);
+      part(0.12, 0.12, 0.02, -0.12, 1.6, 0.26, 0x222222); part(0.12, 0.12, 0.02, 0.12, 1.6, 0.26, 0x222222);
+      part(0.42, 0.7, 0.2, 0, 1.0, 0, 0xcfcab8);
+      part(0.12, 0.7, 0.12, -0.32, 1.0, 0, 0xe6e2d3); part(0.12, 0.7, 0.12, 0.32, 1.0, 0, 0xe6e2d3);
+      part(0.13, 0.75, 0.13, -0.12, 0.38, 0, 0xd8d3c0); part(0.13, 0.75, 0.13, 0.12, 0.38, 0, 0xd8d3c0);
+    }
+    scene.add(g);
+    return { group: g, mats: mats };
+  }
+  function removeMob(m) {
+    scene.remove(m.group);
+    m.group.children.forEach(function (c) { if (c.geometry) c.geometry.dispose(); });
+    var i = MOBS.indexOf(m);
+    if (i >= 0) MOBS.splice(i, 1);
+  }
+  function trySpawn() {
+    var ang = Math.random() * Math.PI * 2, dist = 16 + Math.random() * 8;
+    var x = Math.floor(P.x + Math.cos(ang) * dist), z = Math.floor(P.z + Math.sin(ang) * dist);
+    var type, y;
+    if (Math.random() < 0.5) {
+      var yy = H - 2;
+      while (yy > 0 && !solid(x, yy, z)) yy--;
+      if (yy < SEA + 1) return;
+      type = "zombie"; y = yy + 1;
+    } else {
+      var cy = -1;
+      for (var tries = 0; tries < 16 && cy < 0; tries++) {
+        var c = 4 + Math.floor(Math.random() * (H - 10));
+        if (solid(x, c, z) || solid(x, c + 1, z) || !solid(x, c - 1, z)) continue;
+        var covered = false;
+        for (var j = c + 2; j < H; j++) if (solid(x, j, z)) { covered = true; break; }
+        if (covered) cy = c;
+      }
+      if (cy < 0) return;
+      type = "skeleton"; y = cy;
+    }
+    var b = buildMob(type);
+    MOBS.push({
+      type: type, x: x + 0.5, y: y, z: z + 0.5, vy: 0, ground: false,
+      hp: type === "zombie" ? 10 : 8, cool: 1, hit: 0, kbx: 0, kbz: 0, vx: 0, vz: 0,
+      group: b.group, mats: b.mats, base: b.mats.map(function (mt) { return mt.color.getHex(); })
+    });
+  }
+  function damagePlayer(amount) {
+    if (dead || paused || hurtCool > 0) return;
+    playerHp = Math.max(0, playerHp - amount);
+    hurtCool = 0.5; hurtFlash = 1; sinceHurt = 0; regenT = 0;
+    renderHearts();
+    if (playerHp <= 0) { dead = true; setScreen("dead"); }
+  }
+  function updateMobs(dt) {
+    hurtCool = Math.max(0, hurtCool - dt);
+    attackCool = Math.max(0, attackCool - dt);
+    sinceHurt += dt;
+    hurtFlash = Math.max(0, hurtFlash - dt * 2.5);
+    hurtEl.style.opacity = (hurtFlash * 0.45).toFixed(3);
+    if (playerHp < 10 && sinceHurt > 6) {
+      regenT += dt;
+      if (regenT >= 3) { regenT = 0; playerHp++; renderHearts(); }
+    }
+    mobTimer += dt;
+    if (mobTimer > 1.6 && MOBS.length < 14) { mobTimer = 0; trySpawn(); }
+    for (var i = MOBS.length - 1; i >= 0; i--) {
+      var m = MOBS[i];
+      var dx = P.x - m.x, dz = P.z - m.z, d = Math.sqrt(dx * dx + dz * dz);
+      if (d > 48 || m.y < -10) { removeMob(m); continue; }
+      m.cool = Math.max(0, m.cool - dt);
+      m.hit = Math.max(0, m.hit - dt);
+      var nxp = d > 0.001 ? dx / d : 0, nzp = d > 0.001 ? dz / d : 0;
+      var want = 0, wz = 0, speed = m.type === "zombie" ? 2.1 : 1.6;
+      if (m.type === "zombie") {
+        if (d < 26) { want = nxp; wz = nzp; }
+        if (d < 1.2 && m.cool === 0) { damagePlayer(2); m.cool = 1.0; }
+      } else {
+        if (d < 5) { want = -nxp; wz = -nzp; }
+        else if (d > 8) { want = nxp; wz = nzp; }
+        if (d < 13 && m.cool === 0 && clearLine(m.x, m.y + 1.5, m.z, P.x, P.y + 1.4, P.z)) {
+          damagePlayer(1); m.cool = 2.2;
+        }
+      }
+      m.vx = want * speed + m.kbx;
+      m.vz = wz * speed + m.kbz;
+      m.kbx *= Math.pow(0.02, dt); m.kbz *= Math.pow(0.02, dt);
+      m.vy = Math.max(m.vy - 24 * dt, -30);
+      var nx = m.x + m.vx * dt, nz = m.z + m.vz * dt;
+      var bx = hits(nx, m.y, m.z), bz = hits(m.x, m.y, nz);
+      if (!bx) m.x = nx;
+      if (!bz) m.z = nz;
+      if ((bx || bz) && m.ground) { m.vy = 7.8; m.ground = false; }
+      var ny = m.y + m.vy * dt;
+      if (!hits(m.x, ny, m.z)) { m.y = ny; m.ground = false; }
+      else { if (m.vy < 0) m.ground = true; m.vy = 0; }
+      m.group.position.set(m.x, m.y, m.z);
+      m.group.rotation.y = Math.atan2(dx, dz);
+      for (var k = 0; k < m.mats.length; k++) m.mats[k].color.setHex(m.hit > 0 ? 0xff4a4a : m.base[k]);
+    }
+  }
+  function rayBox(ox, oy, oz, dx, dy, dz, x0, y0, z0, x1, y1, z1) {
+    var o = [ox, oy, oz], dd = [dx, dy, dz], lo = [x0, y0, z0], hi = [x1, y1, z1];
+    var tmin = -Infinity, tmax = Infinity;
+    for (var a = 0; a < 3; a++) {
+      if (Math.abs(dd[a]) < 1e-9) { if (o[a] < lo[a] || o[a] > hi[a]) return null; }
+      else {
+        var t1 = (lo[a] - o[a]) / dd[a], t2 = (hi[a] - o[a]) / dd[a];
+        if (t1 > t2) { var tt = t1; t1 = t2; t2 = tt; }
+        if (t1 > tmin) tmin = t1;
+        if (t2 < tmax) tmax = t2;
+        if (tmin > tmax) return null;
+      }
+    }
+    if (tmax < 0) return null;
+    return Math.max(tmin, 0);
+  }
+  function mobHit(maxT) {
+    var cp = Math.cos(P.pitch);
+    var dx = -Math.sin(P.yaw) * cp, dy = Math.sin(P.pitch), dz = -Math.cos(P.yaw) * cp;
+    var best = null, bestT = maxT;
+    for (var i = 0; i < MOBS.length; i++) {
+      var m = MOBS[i];
+      var t = rayBox(P.x, P.y + 1.62, P.z, dx, dy, dz, m.x - 0.4, m.y, m.z - 0.4, m.x + 0.4, m.y + 1.9, m.z + 0.4);
+      if (t !== null && t < bestT) { bestT = t; best = m; }
+    }
+    return best;
+  }
+  function hitMob(m) {
+    m.hp -= 2; m.hit = 0.3;
+    var dx = m.x - P.x, dz = m.z - P.z, d = Math.hypot(dx, dz) || 1;
+    m.kbx = dx / d * 6; m.kbz = dz / d * 6; m.vy = 4.5; m.ground = false;
+    if (m.hp <= 0) removeMob(m);
+  }
+  document.getElementById("respawn").addEventListener("click", function () {
+    MOBS.slice().forEach(removeMob);
+    playerHp = 10; dead = false; sinceHurt = 99; regenT = 0;
+    renderHearts();
+    spawnAt(Math.floor(P.x), Math.floor(P.z));
+    setScreen(null);
+  });
 
   /* ---------- hotbar ---------- */
   var hb = document.getElementById("hotbar"), bname = document.getElementById("bname"), slots = [];
@@ -581,7 +849,8 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
 
   document.addEventListener("keydown", function (e) {
     keys[e.code] = true;
-    if (e.code === "KeyF") toggleFly();
+    if (e.code === "KeyF" && !paused) toggleFly();
+    if (e.code === "Escape") { if (!paused) setScreen("pause"); else if (screen === "pause") setScreen(null); }
     var n = parseInt(e.key, 10);
     if (n >= 1 && n <= 8) select(n - 1);
     if (e.code === "Space" || e.code.indexOf("Arrow") === 0) e.preventDefault();
@@ -685,6 +954,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     }
     clearTimeout(armTimer); armed = false; nwBtn.textContent = "عالم جديد"; nwBtn.classList.remove("on");
     newWorld();
+    setScreen(null);
   });
   function newWorld() {
     SEED = Math.floor(Math.random() * 900000) + 1;
@@ -713,18 +983,56 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
   document.addEventListener("visibilitychange", function () { if (document.hidden) save(); });
   window.addEventListener("pagehide", save);
 
-  var intro = document.getElementById("intro");
-  document.getElementById("go").addEventListener("click", function () { intro.hidden = true; cv.focus({ preventScroll: true }); });
+  /* ---------- menus ---------- */
+  var paused = true, screen = "title", optsFrom = "title", orbit = 0, hadLock = false;
+  var screens = { title: document.getElementById("intro"), pause: document.getElementById("pausemenu"), opts: document.getElementById("opts"), dead: document.getElementById("deadscreen") };
+  function setScreen(name) {
+    screen = name;
+    paused = name !== null;
+    for (var k in screens) screens[k].hidden = k !== name;
+    app.classList.toggle("menu", paused);
+    if (paused) {
+      inp.fx = 0; inp.fy = 0; inp.jump = false; inp.down = false; keys = {};
+      stickEnd();
+      if (document.pointerLockElement && document.exitPointerLock) document.exitPointerLock();
+      save();
+    } else { cv.focus({ preventScroll: true }); }
+  }
+  var SPLASH = ["ابنِ ما تحلم به!", "عالم بلا نهاية!", "احفر وابنِ!", "هل جرّبت الطيران؟", "مكعب فوق مكعب!", "لا تقع في الحفرة!", "من هاتفك إلى عالم كبير!"];
+  document.getElementById("splash").textContent = SPLASH[Math.floor(Math.random() * SPLASH.length)];
+  document.getElementById("go").textContent = saved ? "متابعة اللعب" : "العب";
+  document.getElementById("go").addEventListener("click", function () { setScreen(null); });
+  document.getElementById("tOpt").addEventListener("click", function () { optsFrom = "title"; setScreen("opts"); });
+  document.getElementById("pOpt").addEventListener("click", function () { optsFrom = "pause"; setScreen("opts"); });
+  document.getElementById("optBack").addEventListener("click", function () { setScreen(optsFrom); });
+  document.getElementById("resume").addEventListener("click", function () { setScreen(null); });
+  document.getElementById("toTitle").addEventListener("click", function () { setScreen("title"); });
+  document.getElementById("menuBtn").addEventListener("click", function () { setScreen("pause"); });
+  document.addEventListener("pointerlockchange", function () {
+    if (document.pointerLockElement === cv) hadLock = true;
+    else if (hadLock) { hadLock = false; if (!paused) setScreen("pause"); }
+  });
+  (function () {
+    var dc = document.createElement("canvas"); dc.width = 16; dc.height = 16;
+    var dx = dc.getContext("2d"); dx.imageSmoothingEnabled = false;
+    dx.drawImage(atlas, 2 * T, 0, T, T, 0, 0, 16, 16);
+    try { app.style.setProperty("--dirt", "url(" + dc.toDataURL() + ")"); } catch (err) {}
+  })();
 
   /* ---------- loop ---------- */
   var coords = document.getElementById("coords"), last = performance.now(), fc = 0;
   function frame(now) {
     var dt = Math.min(0.05, (now - last) / 1000);
     last = now;
-    update(dt);
+    if (paused) {
+      orbit += dt * 0.12;
+      var ox = P.x + Math.cos(orbit) * 14, oz = P.z + Math.sin(orbit) * 14;
+      camera.position.set(ox, Math.max(P.y + 7, height(Math.floor(ox), Math.floor(oz)) + 5), oz);
+      camera.lookAt(P.x, P.y + 2, P.z);
+    } else { update(dt); updateMobs(dt); }
     trackPlayerChunk();
-    pump(5);
-    var h = pick();
+    pump(paused ? 9 : 5);
+    var h = paused ? null : pick();
     if (h) { hl.visible = true; hl.position.set(h.x + 0.5, h.y + 0.5, h.z + 0.5); } else hl.visible = false;
     if ((fc++ & 7) === 0) coords.textContent = "X " + Math.floor(P.x) + "  Y " + Math.floor(P.y) + "  Z " + Math.floor(P.z);
     renderer.render(scene, camera);
