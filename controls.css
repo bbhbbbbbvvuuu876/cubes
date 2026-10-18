@@ -1,0 +1,49 @@
+/* Cubes Mobile Controls Theme — add-on stylesheet */
+:root{
+  --cube-blue-1:#8bdcff;--cube-blue-2:#328ecb;--cube-blue-3:#164a72;
+  --cube-panel:rgba(5,24,40,.78);--cube-border:#e6f7ff;--cube-shadow:rgba(0,0,0,.45);
+}
+/* Styles common existing game buttons without replacing game logic */
+button,.btn,.button,[role="button"],input[type="button"],input[type="submit"]{
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif!important;
+  font-weight:800!important;
+  color:#fff!important;
+  background:linear-gradient(180deg,var(--cube-blue-1) 0%,var(--cube-blue-2) 55%,var(--cube-blue-3) 100%)!important;
+  border:3px solid #071b2b!important;
+  outline:2px solid var(--cube-border);
+  border-radius:5px!important;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.42),0 4px 0 var(--cube-shadow)!important;
+  text-shadow:0 2px 2px rgba(0,0,0,.5);
+  transition:filter .12s,transform .12s;
+}
+button:active,.btn:active,.button:active,[role="button"]:active{
+  transform:translateY(2px);filter:brightness(1.15);
+}
+#build,[data-action="build"],.build-button{background:linear-gradient(#b9f78a,#70c63d 55%,#397b2b)!important;color:#142c12!important;text-shadow:none!important}
+#dig,[data-action="dig"],.dig-button{background:linear-gradient(#e2e9ef,#8999a8 55%,#475867)!important;color:#102030!important;text-shadow:none!important}
+#jump,[data-action="jump"],.jump-button{background:linear-gradient(#ffe69b,#e9a83d 55%,#9b5a1b)!important}
+#fly,[data-action="fly"],.fly-button{background:linear-gradient(#d9b6ff,#8b5be7 55%,#4b2b91)!important}
+#down,[data-action="down"],.down-button{background:linear-gradient(#ffb3b3,#df5353 55%,#872a38)!important}
+#bar,.hotbar,.inventory-bar,[data-ui="hotbar"]{
+  background:var(--cube-panel)!important;border:3px solid #061725!important;
+  outline:2px solid var(--cube-border);padding:5px!important;gap:5px!important;
+  backdrop-filter:blur(6px);
+}
+.slot,.hotbar-slot,.inventory-slot,[data-slot]{
+  border:3px solid #071a28!important;background:rgba(36,70,94,.95)!important;
+}
+.slot.sel,.hotbar-slot.selected,.inventory-slot.selected,.selected-slot,[data-slot].selected{
+  outline:3px solid #fff1b9!important;transform:translateY(-3px);
+}
+#joy,.joystick,.virtual-joystick,[data-ui="joystick"]{
+  border:4px solid rgba(230,247,255,.78)!important;
+  background:radial-gradient(circle at 35% 25%,rgba(116,188,225,.28),rgba(9,36,61,.86) 72%)!important;
+  box-shadow:inset 0 0 0 3px rgba(0,0,0,.25),0 4px 10px rgba(0,0,0,.35)!important;
+  touch-action:none;
+}
+#knob,.joystick-knob,.virtual-joystick-knob{
+  background:linear-gradient(145deg,#fff,#c6dce8)!important;
+  box-shadow:0 4px 9px rgba(0,0,0,.35)!important;
+}
