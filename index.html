@@ -56,7 +56,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
 }
 .hotbar { direction: ltr; display: flex; gap: 4px; padding: 4px; background: var(--panel); border: 3px solid var(--ink); box-shadow: 0 0 0 2px var(--paper) inset; pointer-events: auto; max-width: 100%; }
 .slot {
-  width: clamp(34px, 10.4vw, 46px); aspect-ratio: 1; border: 3px solid rgba(243, 240, 230, 0.28);
+  width: clamp(30px, 9.2vw, 42px); aspect-ratio: 1; border: 3px solid rgba(243, 240, 230, 0.28);
   background: rgba(0, 0, 0, 0.3); padding: 2px; display: block; cursor: pointer;
 }
 .slot canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
@@ -147,6 +147,29 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
 .hearts span { width: 14px; height: 14px; background: #d62c2c; border: 2px solid #111; box-shadow: inset 2px 2px 0 #ff8a8a; }
 .hearts span.e { background: #3a1616; box-shadow: none; }
 #hurt { position: fixed; inset: 0; background: #c00000; opacity: 0; pointer-events: none; z-index: 5; }
+[hidden] { display: none !important; }
+.slot { position: relative; }
+.slot .cnt, .slot2 .cnt, .cursor .cnt { position: absolute; right: 3px; bottom: 1px; font: 800 13px/1 var(--font); color: #fff; text-shadow: 2px 2px 0 #333; pointer-events: none; }
+.slot2 { position: relative; width: 44px; height: 44px; padding: 0; display: flex; align-items: center; justify-content: center; background: #8b8680; border: 3px solid; border-color: #3f3b36 #fbfaf5 #fbfaf5 #3f3b36; box-shadow: inset 2px 2px 0 #5a554e; touch-action: none; cursor: pointer; }
+.slot2 canvas { width: 72%; height: 72%; image-rendering: pixelated; pointer-events: none; }
+.slot2:hover { background: #9c978f; }
+.slot2:focus-visible { outline: 3px solid #5f8f35; outline-offset: 1px; }
+.outslot { width: 56px; height: 56px; }
+.cursor { position: absolute; width: 40px; height: 40px; padding: 0; border: 0; background: transparent; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 30; }
+.cursor canvas { width: 36px; height: 36px; image-rendering: pixelated; }
+.craftrow { display: flex; align-items: center; gap: 12px; }
+.craftgrid { display: grid; gap: 3px; }
+.craftgrid.g2 { grid-template-columns: repeat(2, 52px); }
+.craftgrid.g3 { grid-template-columns: repeat(3, 52px); }
+.craftgrid .slot2 { width: 52px; height: 52px; }
+.arrow { width: 0; height: 0; border-top: 14px solid transparent; border-bottom: 14px solid transparent; border-left: 22px solid #6f6a5e; }
+.invpanel { width: min(396px, calc(100% - 16px)); max-height: calc(100% - 16px); overflow: auto; box-sizing: border-box; padding: 14px; background: #c6c0b1; border: 3px solid #2a2622; box-shadow: inset 3px 3px 0 #ece8dd, inset -3px -3px 0 #8d8778, 0 12px 28px rgba(0, 0, 0, 0.45); display: flex; flex-direction: column; align-items: center; gap: 10px; color: #3b372f; }
+.invpanel h2 { margin: 0; font-size: 24px; font-weight: 800; color: #3b372f; text-shadow: none; }
+.invlabel { align-self: flex-start; font-weight: 800; font-size: 14px; color: #4a463d; }
+.grid9 { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 3px; width: 100%; }
+.grid9 .slot2 { width: auto; height: auto; aspect-ratio: 1 / 1; }
+#invscreen .small { color: #3b372f; text-shadow: none; max-width: none; margin: 0; font-size: 12px; }
+.toast { position: absolute; left: 50%; bottom: 150px; transform: translateX(-50%); background: var(--panel); border: 2px solid var(--paper); padding: 6px 12px; font-weight: 800; white-space: nowrap; pointer-events: none; z-index: 12; }
 </style>
 </head>
 <body>
@@ -157,8 +180,10 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
   <div class="coords" id="coords">X 0 Y 0 Z 0</div>
   <div class="hearts" id="hearts"></div>
   <div id="hurt"></div>
+  <div class="toast" id="toast" hidden></div>
   <div class="top">
     <button class="btn" id="flyBtn" type="button">طيران</button>
+    <button class="btn" id="bagBtn" type="button">الحقيبة</button>
     <button class="btn" id="menuBtn" type="button">القائمة</button>
   </div>
 
@@ -201,6 +226,23 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
       <h2>لقد سقطت!</h2>
       <p class="small">هاجمتك الوحوش. ابدأ من جديد وأنت بصحة كاملة.</p>
       <button class="btn mcb" id="respawn" type="button">انطلق من جديد</button>
+    </div>
+  </div>
+
+  <div class="screen dim" id="invscreen" hidden>
+    <div class="invpanel">
+      <h2 id="invTitle">الحقيبة</h2>
+      <div class="craftrow">
+        <div id="craftWrap" class="craftgrid g2"></div>
+        <div class="arrow" aria-hidden="true"></div>
+        <div id="outWrap"></div>
+      </div>
+      <div class="invlabel">المخزون</div>
+      <div id="mainGrid" class="grid9"></div>
+      <div class="invlabel">الشريط السريع</div>
+      <div id="invHot" class="grid9"></div>
+      <p class="small">اضغط على خانة لتحمل قطعتها ثم اضغط خانة أخرى لنقلها. الزر الأيمن ينقل قطعة واحدة. اضغط على الناتج لصنعه.</p>
+      <button class="btn mcb" id="invClose" type="button">إغلاق</button>
     </div>
   </div>
 
@@ -334,7 +376,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
   }
 
   /* ---------- texture atlas ---------- */
-  var T = 16, NT = 10;
+  var T = 16, NT = 12;
   var atlas = document.createElement("canvas");
   atlas.width = T * NT; atlas.height = T;
   var actx = atlas.getContext("2d");
@@ -373,6 +415,17 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     if (by % 4 === 3 || bx % 8 === (row % 2 ? 0 : 4)) px(9, bx, by, col([200, 196, 186], 1 + (rnd() - 0.5) * 0.1));
   }
 
+  fill(10, [176, 140, 86], 0.12);
+  for (var gi = 0; gi < T; gi++) {
+    px(10, gi, 0, col([102, 78, 46], 0.9)); px(10, gi, 7, col([102, 78, 46], 0.9));
+    px(10, 0, gi, col([102, 78, 46], 0.9)); px(10, 7, gi, col([102, 78, 46], 0.9));
+  }
+  for (var ti = 2; ti < 6; ti++) px(10, 10 + ti, 10 + ti, col([120, 40, 30], 1));
+  fill(11, [150, 118, 70], 0.12);
+  for (var sy = 3; sy < 13; sy++) px(11, 5, sy, col([60, 42, 24], 1));
+  for (var sx = 5; sx < 12; sx++) px(11, sx, 3, col([90, 90, 98], 1));
+  for (var sx2 = 9; sx2 < 13; sx2++) px(11, sx2, 4, col([90, 90, 98], 1));
+
   var tex = new THREE.CanvasTexture(atlas);
   tex.magFilter = THREE.NearestFilter;
   tex.minFilter = THREE.NearestFilter;
@@ -386,9 +439,9 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     5: { top: 6, side: 6, bottom: 6, name: "أوراق" },
     6: { top: 7, side: 7, bottom: 7, name: "ألواح" },
     7: { top: 8, side: 8, bottom: 8, name: "رمل" },
-    8: { top: 9, side: 9, bottom: 9, name: "طوب" }
+    8: { top: 9, side: 9, bottom: 9, name: "طوب" },
+    9: { top: 10, side: 11, bottom: 6, name: "طاولة صنع" }
   };
-  var HOT = [1, 2, 3, 4, 6, 5, 7, 8];
 
   /* ---------- chunk meshing ---------- */
   var FACES = [
@@ -637,19 +690,29 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
   function doBreak() {
     var h = pick(), m = mobHit(h ? h.t : 6);
     if (m) { if (attackCool <= 0) { attackCool = 0.35; hitMob(m); } return; }
-    if (h && h.y > 0) setBlock(h.x, h.y, h.z, 0);
+    if (!h || h.y <= 0) return;
+    var bid = get(h.x, h.y, h.z);
+    if (NEEDS_PICK[bid] && countItem(21) === 0) { toast("تحتاج معولاً لكسر هذا الحجر"); return; }
+    if (addItem(bid, 1) > 0) { toast("الحقيبة ممتلئة"); return; }
+    setBlock(h.x, h.y, h.z, 0);
   }
   function doPlace() {
     var h = pick();
     if (!h) return;
+    if (get(h.x, h.y, h.z) === 9) { openInv(3); return; }
+    var st = inv[sel];
+    if (!st || !B[st.id]) { toast("اختر مكعباً من الشريط السفلي"); return; }
     var x = h.x + h.nx, y = h.y + h.ny, z = h.z + h.nz;
     if (get(x, y, z) || y < 1 || y >= H) return;
+    var bid = st.id;
     var c = getChunk(x >> 4, z >> 4), li = (x & 15) + CS * ((z & 15) + CS * y);
-    c.d[li] = HOT[sel];
+    c.d[li] = bid;
     var blocked = hits(P.x, P.y, P.z);
     c.d[li] = 0;
     if (blocked) return;
-    setBlock(x, y, z, HOT[sel]);
+    st.n--; if (st.n <= 0) inv[sel] = null;
+    setBlock(x, y, z, bid);
+    refreshInv();
   }
 
   /* ---------- creatures ---------- */
@@ -822,24 +885,201 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     setScreen(null);
   });
 
-  /* ---------- hotbar ---------- */
-  var hb = document.getElementById("hotbar"), bname = document.getElementById("bname"), slots = [];
-  HOT.forEach(function (id, i) {
-    var b = document.createElement("button");
-    b.type = "button"; b.className = "slot"; b.setAttribute("aria-label", B[id].name);
-    var c = document.createElement("canvas"); c.width = 16; c.height = 16;
-    var cx2 = c.getContext("2d"); cx2.imageSmoothingEnabled = false;
-    cx2.drawImage(atlas, B[id].side * T, 0, T, T, 0, 0, 16, 16);
-    b.appendChild(c);
-    b.addEventListener("pointerdown", function (e) { e.preventDefault(); select(i); });
-    hb.appendChild(b); slots.push(b);
-  });
-  function select(i) {
-    sel = (i + HOT.length) % HOT.length;
-    slots.forEach(function (s, k) { s.classList.toggle("on", k === sel); });
-    bname.textContent = B[HOT[sel]].name;
+  /* ---------- hotbar and inventory ---------- */
+  var hb = document.getElementById("hotbar"), bname = document.getElementById("bname");
+  var hbSlots = [], invEls = [], craftEls = [], outEl = null, cursorEl = null;
+  var cursor = null, craft = [], craftSize = 2;
+  var toastEl = document.getElementById("toast"), toastT = 0, curX = 0, curY = 0;
+  var craftWrap = document.getElementById("craftWrap"), invTitle = document.getElementById("invTitle");
+  var invHotEl = document.getElementById("invHot"), mainEl = document.getElementById("mainGrid");
+
+  var NAMES = { 20: "عصا", 21: "معول خشبي" };
+  var NEEDS_PICK = { 3: 1, 8: 1 };
+  var KEY = { P: 6, L: 4, S: 20, X: 3 };
+  var RECIPES = [
+    { pat: ["L"], out: { id: 6, n: 4 } },
+    { pat: ["P", "P"], out: { id: 20, n: 4 } },
+    { pat: ["PP", "PP"], out: { id: 9, n: 1 } },
+    { pat: ["XX", "XX"], out: { id: 8, n: 4 } },
+    { pat: ["PPP", " S ", " S "], out: { id: 21, n: 1 } }
+  ];
+  function nameOf(id) { return B[id] ? B[id].name : NAMES[id]; }
+  function starterInv() {
+    var a = [];
+    for (var i = 0; i < 36; i++) a.push(null);
+    a[0] = { id: 2, n: 16 }; a[1] = { id: 4, n: 8 };
+    return a;
   }
-  select(saved && saved.sel >= 0 && saved.sel < HOT.length ? saved.sel : 0);
+  var inv = (saved && Array.isArray(saved.inv) && saved.inv.length === 36) ? saved.inv : starterInv();
+
+  function drawIcon(cv, id) {
+    var c = cv.getContext("2d");
+    c.clearRect(0, 0, 16, 16);
+    c.imageSmoothingEnabled = false;
+    if (B[id]) { c.drawImage(atlas, B[id].side * T, 0, T, T, 0, 0, 16, 16); return; }
+    if (id === 20) {
+      for (var k = 0; k < 12; k++) { c.fillStyle = k % 3 === 0 ? "#f3d59c" : "#8a5a2b"; c.fillRect(2 + k, 13 - k, 2, 2); }
+    } else if (id === 21) {
+      c.fillStyle = "#7a5530";
+      for (var h = 0; h < 8; h++) c.fillRect(4 + h, 12 - h, 2, 2);
+      c.fillStyle = "#c9ccd1";
+      for (var a = 20; a <= 160; a += 4) {
+        var rad = a * Math.PI / 180;
+        c.fillRect(Math.round(8 + Math.cos(rad) * 6), Math.round(9 - Math.sin(rad) * 6), 2, 2);
+      }
+    }
+  }
+  function paintSlot(el, st) {
+    drawIcon(el._cv, st && st.n > 0 ? st.id : 0);
+    el._n.textContent = st && st.n > 1 ? String(st.n) : "";
+    if (!st || st.n <= 0) el._cv.getContext("2d").clearRect(0, 0, 16, 16);
+  }
+  function makeSlot(kind, i, cls) {
+    var el = document.createElement("button");
+    el.type = "button"; el.className = cls;
+    var cv = document.createElement("canvas"); cv.width = 16; cv.height = 16;
+    var n = document.createElement("span"); n.className = "cnt";
+    el.appendChild(cv); el.appendChild(n);
+    el._cv = cv; el._n = n; el._loc = { kind: kind, i: i };
+    el.addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      curX = e.clientX; curY = e.clientY;
+      if (kind !== "cur") onSlot(el._loc, e.button === 2);
+    });
+    return el;
+  }
+  function positionCursor() {
+    if (cursorEl && cursor) { cursorEl.style.left = (curX - 20) + "px"; cursorEl.style.top = (curY - 20) + "px"; }
+  }
+  function refreshInv() {
+    for (var i = 0; i < 9; i++) { paintSlot(hbSlots[i], inv[i]); hbSlots[i].classList.toggle("on", i === sel); }
+    bname.textContent = inv[sel] ? nameOf(inv[sel].id) : "فارغ";
+    if (screen !== "inv" || !cursorEl) return;
+    for (var j = 0; j < 36; j++) paintSlot(invEls[j], inv[j]);
+    for (var k = 0; k < craftEls.length; k++) paintSlot(craftEls[k], craft[k]);
+    paintSlot(outEl, craftMatch());
+    paintSlot(cursorEl, cursor);
+    cursorEl.hidden = !cursor;
+    positionCursor();
+  }
+  function addItem(id, n) {
+    var left = n, i;
+    for (i = 0; i < 36 && left > 0; i++) if (inv[i] && inv[i].id === id && inv[i].n < 64) {
+      var mv = Math.min(64 - inv[i].n, left); inv[i].n += mv; left -= mv;
+    }
+    for (i = 0; i < 36 && left > 0; i++) if (!inv[i]) {
+      var mv2 = Math.min(64, left); inv[i] = { id: id, n: mv2 }; left -= mv2;
+    }
+    refreshInv();
+    return left;
+  }
+  function countItem(id) {
+    var t = 0;
+    for (var i = 0; i < 36; i++) if (inv[i] && inv[i].id === id) t += inv[i].n;
+    return t;
+  }
+  function toast(msg) { toastEl.textContent = msg; toastEl.hidden = false; toastT = 1.8; }
+
+  /* shaped recipes: the pattern must match the bounding box of the grid */
+  function craftMatch() {
+    var size = craftSize, cells = [], r, c, minR = 99, maxR = -1, minC = 99, maxC = -1;
+    for (r = 0; r < size; r++) for (c = 0; c < size; c++) {
+      var st = craft[r * size + c], ch = " ";
+      if (st) for (var k in KEY) if (KEY[k] === st.id) ch = k;
+      cells.push(ch);
+      if (ch !== " ") { minR = Math.min(minR, r); maxR = Math.max(maxR, r); minC = Math.min(minC, c); maxC = Math.max(maxC, c); }
+    }
+    if (maxR < 0) return null;
+    var grid = [];
+    for (r = minR; r <= maxR; r++) {
+      var row = "";
+      for (c = minC; c <= maxC; c++) row += cells[r * size + c];
+      grid.push(row);
+    }
+    for (var q = 0; q < RECIPES.length; q++) {
+      var pat = RECIPES[q].pat, ok = pat.length === grid.length;
+      for (var j = 0; ok && j < pat.length; j++) if (pat[j] !== grid[j]) ok = false;
+      if (ok) return RECIPES[q].out;
+    }
+    return null;
+  }
+  function consumeCraft() {
+    for (var i = 0; i < craft.length; i++) if (craft[i]) { craft[i].n--; if (craft[i].n <= 0) craft[i] = null; }
+  }
+  function takeOutput() {
+    var res = craftMatch();
+    if (!res) return;
+    if (!cursor) cursor = { id: res.id, n: res.n };
+    else if (cursor.id === res.id && cursor.n + res.n <= 64) cursor.n += res.n;
+    else { toast("ضع ما في يدك أولاً"); return; }
+    consumeCraft();
+  }
+  function onSlot(loc, right) {
+    if (loc.kind === "out") { takeOutput(); refreshInv(); return; }
+    var st = loc.kind === "inv" ? inv[loc.i] : craft[loc.i];
+    var put = function (v) { if (loc.kind === "inv") inv[loc.i] = v; else craft[loc.i] = v; };
+    if (!right) {
+      if (!cursor) { if (st) { cursor = st; put(null); } }
+      else if (!st) { put(cursor); cursor = null; }
+      else if (st.id === cursor.id) {
+        var mv = Math.min(64 - st.n, cursor.n); st.n += mv; cursor.n -= mv;
+        if (cursor.n <= 0) cursor = null;
+      } else { var tmp = st; put(cursor); cursor = tmp; }
+    } else {
+      if (!cursor) {
+        if (st) { var half = Math.ceil(st.n / 2); cursor = { id: st.id, n: half }; st.n -= half; if (st.n <= 0) put(null); }
+      } else if (!st) { put({ id: cursor.id, n: 1 }); cursor.n--; if (cursor.n <= 0) cursor = null; }
+      else if (st.id === cursor.id && st.n < 64) { st.n++; cursor.n--; if (cursor.n <= 0) cursor = null; }
+    }
+    refreshInv();
+  }
+  function openInv(size) {
+    craftSize = size; craft = [];
+    for (var i = 0; i < size * size; i++) craft.push(null);
+    craftWrap.innerHTML = "";
+    craftWrap.className = "craftgrid g" + size;
+    craftEls = [];
+    for (var j = 0; j < size * size; j++) {
+      var el = makeSlot("craft", j, "slot2");
+      craftWrap.appendChild(el); craftEls.push(el);
+    }
+    invTitle.textContent = size === 3 ? "طاولة الصنع" : "الحقيبة";
+    setScreen("inv");
+    refreshInv();
+  }
+  function closeInv() {
+    for (var i = 0; i < craft.length; i++) if (craft[i]) { var s2 = craft[i]; craft[i] = null; addItem(s2.id, s2.n); }
+    if (cursor) { var c2 = cursor; cursor = null; addItem(c2.id, c2.n); }
+    craft = [];
+    setScreen(null);
+  }
+  function select(i) { sel = (i + 9) % 9; refreshInv(); }
+
+  for (var hi = 0; hi < 9; hi++) {
+    var hs = document.createElement("button");
+    hs.type = "button"; hs.className = "slot"; hs.setAttribute("aria-label", "خانة " + (hi + 1));
+    var hc = document.createElement("canvas"); hc.width = 16; hc.height = 16;
+    var hn = document.createElement("span"); hn.className = "cnt";
+    hs.appendChild(hc); hs.appendChild(hn);
+    hs._cv = hc; hs._n = hn;
+    (function (el, idx) { el.addEventListener("pointerdown", function (e) { e.preventDefault(); select(idx); }); })(hs, hi);
+    hb.appendChild(hs); hbSlots.push(hs);
+  }
+  for (var q2 = 0; q2 < 36; q2++) {
+    var se = makeSlot("inv", q2, "slot2");
+    if (q2 < 9) invHotEl.appendChild(se); else mainEl.appendChild(se);
+    invEls.push(se);
+  }
+  outEl = makeSlot("out", 0, "slot2 outslot");
+  document.getElementById("outWrap").appendChild(outEl);
+  cursorEl = makeSlot("cur", 0, "cursor");
+  cursorEl.hidden = true;
+  app.appendChild(cursorEl);
+  document.addEventListener("pointermove", function (e) { curX = e.clientX; curY = e.clientY; positionCursor(); });
+  document.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+  document.getElementById("invClose").addEventListener("click", closeInv);
+  document.getElementById("bagBtn").addEventListener("click", function () { if (!paused) openInv(2); });
+  select(saved && saved.sel >= 0 && saved.sel < 9 ? saved.sel : 0);
 
   /* ---------- input ---------- */
   if (isTouch) app.classList.add("touch");
@@ -850,9 +1090,10 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
   document.addEventListener("keydown", function (e) {
     keys[e.code] = true;
     if (e.code === "KeyF" && !paused) toggleFly();
-    if (e.code === "Escape") { if (!paused) setScreen("pause"); else if (screen === "pause") setScreen(null); }
+    if (e.code === "KeyE") { if (screen === "inv") closeInv(); else if (!paused) openInv(2); }
+    if (e.code === "Escape") { if (screen === "inv") closeInv(); else if (!paused) setScreen("pause"); else if (screen === "pause") setScreen(null); }
     var n = parseInt(e.key, 10);
-    if (n >= 1 && n <= 8) select(n - 1);
+    if (n >= 1 && n <= 9) select(n - 1);
     if (e.code === "Space" || e.code.indexOf("Arrow") === 0) e.preventDefault();
   });
   document.addEventListener("keyup", function (e) { keys[e.code] = false; });
@@ -958,7 +1199,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
   });
   function newWorld() {
     SEED = Math.floor(Math.random() * 900000) + 1;
-    edits = {};
+    edits = {}; inv = starterInv(); craft = []; cursor = null;
     var ks = []; meshes.forEach(function (m, k) { ks.push(k); });
     ks.forEach(dropMesh);
     chunks.clear(); lc = null; pending = [];
@@ -974,7 +1215,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     saveTimer = null;
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify({
-        seed: SEED, edits: edits, R: R, sel: sel, fly: P.fly ? 1 : 0,
+        seed: SEED, edits: edits, R: R, sel: sel, inv: inv, fly: P.fly ? 1 : 0,
         p: { x: P.x, y: P.y, z: P.z, yaw: P.yaw, pitch: P.pitch }
       }));
     } catch (e) {}
@@ -985,7 +1226,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
 
   /* ---------- menus ---------- */
   var paused = true, screen = "title", optsFrom = "title", orbit = 0, hadLock = false;
-  var screens = { title: document.getElementById("intro"), pause: document.getElementById("pausemenu"), opts: document.getElementById("opts"), dead: document.getElementById("deadscreen") };
+  var screens = { title: document.getElementById("intro"), pause: document.getElementById("pausemenu"), opts: document.getElementById("opts"), dead: document.getElementById("deadscreen"), inv: document.getElementById("invscreen") };
   function setScreen(name) {
     screen = name;
     paused = name !== null;
@@ -1032,6 +1273,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     } else { update(dt); updateMobs(dt); }
     trackPlayerChunk();
     pump(paused ? 9 : 5);
+    if (toastT > 0) { toastT -= dt; if (toastT <= 0) toastEl.hidden = true; }
     var h = paused ? null : pick();
     if (h) { hl.visible = true; hl.position.set(h.x + 0.5, h.y + 0.5, h.z + 0.5); } else hl.visible = false;
     if ((fc++ & 7) === 0) coords.textContent = "X " + Math.floor(P.x) + "  Y " + Math.floor(P.y) + "  Z " + Math.floor(P.z);
