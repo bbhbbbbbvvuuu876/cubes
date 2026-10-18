@@ -371,8 +371,23 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
         else if (y < 12) d[oi] = 71;
         if (y < 14 && d[oi] === 71 && hash3(gx, y, gz, 79) < 0.1) d[oi] = 81;
       }
-      for (y = 3; y <= ch - 3 && y < H; y++) {
-        if (vnoise3(gx / 10, y / 6, gz / 10, 41) > CAVE_T) d[lx + CS * (lz + CS * y)] = 0;
+      /* Minecraft-style caves: large cheese rooms, winding spaghetti and noodle tunnels,
+         vertical shafts and ravines that open onto the surface */
+      var shX = x0 + 3 + Math.floor(hash(cx, cz, 92) * 10), shZ = z0 + 3 + Math.floor(hash(cx, cz, 93) * 10);
+      var inShaft = hash(cx, cz, 91) < 0.3 && Math.abs(gx - shX) <= 1 && Math.abs(gz - shZ) <= 1;
+      var inRav = hash(cx, cz, 94) < 0.14 && Math.abs(gz - (z0 + 8 + Math.round(3 * Math.sin(gx / 9)))) <= 1 + hash(gx, 0, 95) * 0.8;
+      for (y = 3; y <= Math.min(H - 2, ch + 2); y++) {
+        var air = false;
+        if (inRav && y >= 6) air = true;
+        else if (inShaft && y >= 12) air = true;
+        else if (y < ch - 1 && vnoise3(gx / 24, y / 12, gz / 24, 41) > 0.7) air = true;
+        else if (y < ch - 2) {
+          var sa = vnoise3(gx / 16, y / 10, gz / 16, 61), sb = vnoise3(gx / 16, y / 10, gz / 16, 62);
+          if (Math.abs(sa - 0.5) < 0.04 && Math.abs(sb - 0.5) < 0.04) air = true;
+          var na = vnoise3(gx / 8, y / 6, gz / 8, 63), nb = vnoise3(gx / 8, y / 6, gz / 8, 64);
+          if (Math.abs(na - 0.5) < 0.025 && Math.abs(nb - 0.5) < 0.025) air = true;
+        }
+        if (air) d[lx + CS * (lz + CS * y)] = 0;
       }
     }
     for (var tx = x0 - 5; tx < x0 + CS + 5; tx++) for (var tz = z0 - 5; tz < z0 + CS + 5; tz++) {
