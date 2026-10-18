@@ -144,9 +144,10 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
 .panelbox .mcb { width: 100%; }
 .menu .coords, .menu .cross, .menu .hud-bottom, .menu .pad, .menu .top, .menu .hearts, .menu .food, .menu #hurt { display: none !important; }
 @media (max-height: 470px) { .logo { font-size: 40px; flex-direction: row; gap: 12px; } .splash { margin: 6px 0; } .small { display: none; } }
-.hearts { position: absolute; top: calc(42px + env(safe-area-inset-top, 0px)); left: max(16px, env(safe-area-inset-left, 0px)); display: flex; gap: 3px; pointer-events: none; }
-.hearts span { width: 14px; height: 14px; background: #d62c2c; border: 2px solid #111; box-shadow: inset 2px 2px 0 #ff8a8a; }
-.hearts span.e { background: #3a1616; box-shadow: none; }
+.stats { display: flex; justify-content: space-between; align-items: center; width: min(92vw, 440px); pointer-events: none; }
+.hearts, .food { display: flex; gap: 1px; pointer-events: none; }
+.hearts span { font-size: 22px; line-height: 22px; color: #e0242f; text-shadow: 0 2px 0 #4a0810, 0 0 6px rgba(0,0,0,.5); }
+.hearts span.e { color: #3b2026; text-shadow: none; opacity: .55; }
 #hurt { position: fixed; inset: 0; background: #c00000; opacity: 0; pointer-events: none; z-index: 5; }
 #wet { position: fixed; inset: 0; background: rgba(40, 110, 220, 0.4); opacity: 0; pointer-events: none; z-index: 4; transition: opacity 0.25s; }
 [hidden] { display: none !important; }
@@ -185,9 +186,11 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
 .rcell.out { width: 46px; height: 46px; }
 .small-arrow { border-left-width: 16px; border-top-width: 9px; border-bottom-width: 9px; }
 .rname { font-weight: 800; font-size: 15px; color: #2f2b25; }
-.food { position: absolute; top: calc(66px + env(safe-area-inset-top, 0px)); left: max(16px, env(safe-area-inset-left, 0px)); display: flex; gap: 3px; pointer-events: none; }
-.food span { width: 14px; height: 14px; background: #b8702f; border: 2px solid #111; box-shadow: inset 2px 2px 0 #e7a766; }
-.food span.e { background: #3a2a1a; box-shadow: none; }
+.food span { font-size: 19px; line-height: 22px; text-shadow: 0 2px 0 rgba(0,0,0,.5); }
+.food span.e { opacity: .25; filter: grayscale(1); }
+#fx { position: fixed; inset: 0; pointer-events: none; z-index: 6; overflow: hidden; }
+.hfx { position: absolute; font-size: 26px; color: #ff3b5c; text-shadow: 0 2px 0 #4a0810; animation: hfloat 1.2s ease-out forwards; }
+@keyframes hfloat { 0% { transform: translate(0, 0) scale(0.6); opacity: 1; } 100% { transform: translate(var(--dx, 0px), -150px) scale(1.25); opacity: 0; } }
 .logo .l1 { font-family: 'Cinzel Decorative', 'Cinzel', serif; font-size: clamp(34px, 11vw, 62px); letter-spacing: 0.04em; -webkit-text-stroke: 0; background: linear-gradient(180deg, #fff6cf 0%, #f0c95a 45%, #a86f12 60%, #ffe59a 100%); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 3px 0 #3a2508) drop-shadow(0 0 18px rgba(255, 200, 90, 0.45)); }
 .logo .l2 { font-family: 'Cinzel', serif; font-weight: 600; font-size: clamp(12px, 3.6vw, 17px); letter-spacing: 0.32em; text-transform: uppercase; -webkit-text-stroke: 0; color: #f2e3b0; text-shadow: 0 2px 0 #3a2508, 0 0 12px rgba(0, 0, 0, 0.6); margin-top: 6px; }
 .crest svg { width: min(72vw, 300px); height: auto; display: block; margin: 0 auto 4px; filter: drop-shadow(0 2px 0 #3a2508); }
@@ -208,9 +211,8 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
   <div class="cross"></div>
 
   <div class="coords" id="coords">X 0 Y 0 Z 0</div>
-  <div class="hearts" id="hearts"></div>
-  <div class="food" id="food"></div>
   <div id="hurt"></div>
+  <div id="fx"></div>
   <div id="wet"></div>
   <div class="toast" id="toast" hidden></div>
   <div class="top">
@@ -231,6 +233,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
 
   <div class="hud-bottom">
     <div class="bname" id="bname">عشب</div>
+    <div class="stats"><div class="hearts" id="hearts"></div><div class="food" id="food"></div></div>
     <div class="hotbar" id="hotbar"></div>
   </div>
 
@@ -604,6 +607,14 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     else if (pat === "glass") { for (x = 0; x < T; x++) { px(t, x, 0, col(base, 1.12)); px(t, x, T - 1, col(base, 0.9)); px(t, 0, x, col(base, 1.12)); px(t, T - 1, x, col(base, 0.9)); px(t, x, x, col([255, 255, 255], 1)); } }
   }
   NEWB.forEach(function (e, i) { paintTile(18 + i, e[2], e[3], e[4]); });
+
+  for (var tt = 0; tt < NT; tt++) {
+    var timg = actx.getImageData(tt * T, 0, T, T), td = timg.data;
+    for (var q2 = 0; q2 < td.length; q2 += 4) {
+      if (rnd() < 0.2) { var fz = rnd() < 0.5 ? 0.88 : 1.1; td[q2] = Math.min(255, td[q2] * fz); td[q2 + 1] = Math.min(255, td[q2 + 1] * fz); td[q2 + 2] = Math.min(255, td[q2 + 2] * fz); }
+    }
+    actx.putImageData(timg, tt * T, 0);
+  }
 
   var tex = new THREE.CanvasTexture(atlas);
   tex.magFilter = THREE.NearestFilter;
@@ -995,7 +1006,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
   var DAY_LEN = 240, worldT = (saved && isFinite(saved.wt)) ? saved.wt : 0.25, daylight = 1, worldBright = 1;
   var skyDay = new THREE.Color(0x8ec5ee), skyNight = new THREE.Color(0x0b1430), skyDusk = new THREE.Color(0xe98a58), skyCur = new THREE.Color();
   var heartsEl = document.getElementById("hearts"), hurtEl = document.getElementById("hurt"), heartCells = [];
-  for (var hi = 0; hi < 10; hi++) { var hc = document.createElement("span"); heartsEl.appendChild(hc); heartCells.push(hc); }
+  for (var hi = 0; hi < 10; hi++) { var hc = document.createElement("span"); hc.textContent = "♥"; heartsEl.appendChild(hc); heartCells.push(hc); }
   function renderHearts() { for (var i = 0; i < 10; i++) heartCells[i].className = i < playerHp ? "" : "e"; }
   renderHearts();
 
@@ -1168,10 +1179,31 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     if (ty < SEA + 1 || ty + 1 >= H || get(x, ty, z) !== 1) return;
     addMob(Math.random() < 0.12 ? "fox" : ANIMALS[Math.floor(Math.random() * ANIMALS.length)], x + 0.5, ty + 1, z + 0.5, false);
   }
+  function spawnHeartsAt(x, y, z, n) {
+    var fx = document.getElementById("fx");
+    if (!fx) return;
+    var bx = innerWidth * 0.5, by = innerHeight * 0.7;
+    if (x !== null) {
+      var v = new THREE.Vector3(x, y, z).project(camera);
+      if (v.z > 1) return;
+      bx = (v.x + 1) / 2 * innerWidth; by = (1 - v.y) / 2 * innerHeight;
+    }
+    for (var i = 0; i < Math.min(8, n); i++) {
+      var el = document.createElement("span");
+      el.className = "hfx"; el.textContent = "♥";
+      el.style.left = (bx - 12 + (Math.random() - 0.5) * 60) + "px";
+      el.style.top = (by - 10 + (Math.random() - 0.5) * 30) + "px";
+      el.style.setProperty("--dx", ((Math.random() - 0.5) * 60) + "px");
+      el.style.animationDelay = (Math.random() * 0.15) + "s";
+      fx.appendChild(el);
+      setTimeout(function (e) { return function () { e.remove(); }; }(el), 1500);
+    }
+  }
   function damagePlayer(amount) {
     if (dead || paused || hurtCool > 0) return;
     playerHp = Math.max(0, playerHp - amount);
     hurtCool = 0.5; hurtFlash = 1; sinceHurt = 0; regenT = 0;
+    spawnHeartsAt(null, 0, 0, 3 + Math.min(4, amount));
     renderHearts();
     if (playerHp <= 0) { dead = true; setScreen("dead"); }
   }
@@ -1200,7 +1232,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     attackCool = Math.max(0, attackCool - dt);
     sinceHurt += dt;
     hurtFlash = Math.max(0, hurtFlash - dt * 2.5);
-    hurtEl.style.opacity = (hurtFlash * 0.45).toFixed(3);
+    hurtEl.style.opacity = "0";
     if (dead) return;
     mobTimer += dt; animalTimer += dt;
     if (mobTimer > 1.4 && countKind(true) < 8) { mobTimer = 0; trySpawnHostile(); }
@@ -1272,7 +1304,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
       if (Math.abs(fx) + Math.abs(fz) > 0.01) m.group.rotation.y = Math.atan2(fx, fz);
       var lit = (m.hostile && under) ? Math.max(0.35, worldBright) : worldBright;
       for (var k = 0; k < m.mats.length; k++) {
-        if (m.hit > 0) m.mats[k].color.setHex(0xff5a4a);
+        if (m.hit > 0) m.mats[k].color.setHex(0xff6fa0);
         else if (m.burning) m.mats[k].color.setHex(0xff8a2a);
         else m.mats[k].color.setHex(m.base[k]).multiplyScalar(lit);
       }
@@ -1308,6 +1340,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
   function hitMob(m) { hitMobBy(m, heldDamage()); }
   function hitMobBy(m, dmg) {
     m.hp -= dmg; m.hit = 0.3;
+    spawnHeartsAt(m.x, m.y + 1.2, m.z, 3);
     var dx = m.x - P.x, dz = m.z - P.z, d = Math.hypot(dx, dz) || 1;
     var push = m.hostile ? 6 : 3;
     m.kbx = dx / d * push; m.kbz = dz / d * push; m.vy = 4.5; m.ground = false;
@@ -1328,7 +1361,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
   var FOOD = { 24: 3 };
   var food = (saved && isFinite(saved.food)) ? saved.food : 10, foodT = 0, healT = 0, starveT = 0;
   var foodEl = document.getElementById("food"), foodCells = [];
-  for (var fi2 = 0; fi2 < 10; fi2++) { var fc = document.createElement("span"); foodEl.appendChild(fc); foodCells.push(fc); }
+  for (var fi2 = 0; fi2 < 10; fi2++) { var fc = document.createElement("span"); fc.textContent = "🍗"; foodEl.appendChild(fc); foodCells.push(fc); }
   function renderFood() { for (var i = 0; i < 10; i++) foodCells[i].className = i < food ? "" : "e"; }
   renderFood();
   function updateFood(dt) {
