@@ -13,8 +13,12 @@
   "orientation": "any",
   "lang": "ar",
   "dir": "rtl",
-  "background_color": "#8ec5ee",
-  "theme_color": "#8ec5ee",
+  "background_color": "#120a1f",
+  "theme_color": "#120a1f",
+  "categories": [
+    "games"
+  ],
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "icon-192.png",
