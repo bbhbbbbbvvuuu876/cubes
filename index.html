@@ -150,7 +150,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
 [hidden] { display: none !important; }
 .slot { position: relative; }
 .slot .cnt, .slot2 .cnt, .cursor .cnt { position: absolute; right: 3px; bottom: 1px; font: 800 13px/1 var(--font); color: #fff; text-shadow: 2px 2px 0 #333; pointer-events: none; }
-.slot2 { position: relative; width: 44px; height: 44px; padding: 0; display: flex; align-items: center; justify-content: center; background: #8b8680; border: 3px solid; border-color: #3f3b36 #fbfaf5 #fbfaf5 #3f3b36; box-shadow: inset 2px 2px 0 #5a554e; touch-action: none; cursor: pointer; }
+.slot2 { position: relative; width: 44px; height: 44px; padding: 0; display: flex; align-items: center; justify-content: center; background: #8b8b8b; border: 3px solid; border-color: #3f3b36 #fbfaf5 #fbfaf5 #3f3b36; box-shadow: inset 2px 2px 0 #5a554e; touch-action: none; cursor: pointer; }
 .slot2 canvas { width: 72%; height: 72%; image-rendering: pixelated; pointer-events: none; }
 .slot2:hover { background: #9c978f; }
 .slot2:focus-visible { outline: 3px solid #5f8f35; outline-offset: 1px; }
@@ -163,7 +163,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
 .craftgrid.g3 { grid-template-columns: repeat(3, 52px); }
 .craftgrid .slot2 { width: 52px; height: 52px; }
 .arrow { width: 0; height: 0; border-top: 14px solid transparent; border-bottom: 14px solid transparent; border-left: 22px solid #6f6a5e; }
-.invpanel { width: min(396px, calc(100% - 16px)); max-height: calc(100% - 16px); overflow: auto; box-sizing: border-box; padding: 14px; background: #c6c0b1; border: 3px solid #2a2622; box-shadow: inset 3px 3px 0 #ece8dd, inset -3px -3px 0 #8d8778, 0 12px 28px rgba(0, 0, 0, 0.45); display: flex; flex-direction: column; align-items: center; gap: 10px; color: #3b372f; }
+.invpanel { width: min(396px, calc(100% - 16px)); max-height: calc(100% - 16px); overflow: auto; box-sizing: border-box; padding: 14px; background: #c6c6c6; border: 3px solid #2a2622; box-shadow: inset 3px 3px 0 #ece8dd, inset -3px -3px 0 #8d8778, 0 12px 28px rgba(0, 0, 0, 0.45); display: flex; flex-direction: column; align-items: center; gap: 10px; color: #3b372f; }
 .invpanel h2 { margin: 0; font-size: 24px; font-weight: 800; color: #3b372f; text-shadow: none; }
 .invlabel { align-self: flex-start; font-weight: 800; font-size: 14px; color: #4a463d; }
 .grid9 { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 3px; width: 100%; }
@@ -174,11 +174,11 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
 .invbtns .btn { flex: 1; height: 46px; }
 .rcell .cnt { position: absolute; right: 2px; bottom: 0; font: 800 13px/1 var(--font); color: #fff; text-shadow: 2px 2px 0 #333; pointer-events: none; }
 .booklist { display: flex; flex-direction: column; gap: 10px; width: 100%; max-height: 52vh; overflow: auto; padding: 2px; box-sizing: border-box; }
-.rcard { display: grid; grid-template-columns: auto auto auto 1fr; align-items: center; gap: 10px; background: #b4ae9f; border: 2px solid #3b372f; padding: 8px; box-shadow: inset 2px 2px 0 #d8d2c2; }
+.rcard { display: grid; grid-template-columns: auto auto auto 1fr; align-items: center; gap: 10px; background: #b0b0b0; border: 2px solid #3b372f; padding: 8px; box-shadow: inset 2px 2px 0 #d8d2c2; }
 .rgrid { display: grid; gap: 2px; }
 .rgrid.g2 { grid-template-columns: repeat(2, 40px); }
 .rgrid.g3 { grid-template-columns: repeat(3, 34px); }
-.rcell { position: relative; aspect-ratio: 1 / 1; background: #8b8680; border: 2px solid; border-color: #3f3b36 #fbfaf5 #fbfaf5 #3f3b36; display: flex; align-items: center; justify-content: center; }
+.rcell { position: relative; aspect-ratio: 1 / 1; background: #8b8b8b; border: 2px solid; border-color: #3f3b36 #fbfaf5 #fbfaf5 #3f3b36; display: flex; align-items: center; justify-content: center; }
 .rcell canvas { width: 72%; height: 72%; image-rendering: pixelated; }
 .rcell.out { width: 46px; height: 46px; }
 .small-arrow { border-left-width: 16px; border-top-width: 9px; border-bottom-width: 9px; }
@@ -351,6 +351,13 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     for (lz = 0; lz < CS; lz++) for (lx = 0; lx < CS; lx++) {
       var ch = colH[lx + CS * lz], gx = x0 + lx, gz = z0 + lz;
       for (y = 3; y <= ch - 3 && y < H; y++) {
+        var oi = lx + CS * (lz + CS * y);
+        if (d[oi] !== 3) continue;
+        var ov = hash3(gx, y, gz, 77);
+        if (ov < 0.022) d[oi] = 10;
+        else if (y < 24 && ov > 0.988) d[oi] = 11;
+      }
+      for (y = 3; y <= ch - 3 && y < H; y++) {
         if (vnoise3(gx / 10, y / 6, gz / 10, 41) > CAVE_T) d[lx + CS * (lz + CS * y)] = 0;
       }
     }
@@ -405,7 +412,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
   }
 
   /* ---------- texture atlas ---------- */
-  var T = 16, NT = 12;
+  var T = 16, NT = 18;
   var atlas = document.createElement("canvas");
   atlas.width = T * NT; atlas.height = T;
   var actx = atlas.getContext("2d");
@@ -469,6 +476,17 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
   }
   for (var hk = 0; hk < 14; hk++) px(6, Math.floor(rnd() * T), Math.floor(rnd() * T), col([24, 70, 24], 1));
 
+  fill(12, [128, 128, 128], 0.3);
+  for (var cz2 = 0; cz2 < 12; cz2++) px(12, Math.floor(rnd() * T), Math.floor(rnd() * T), col([24, 24, 24], 1));
+  fill(13, [128, 128, 128], 0.3);
+  for (var iz2 = 0; iz2 < 10; iz2++) px(13, Math.floor(rnd() * T), Math.floor(rnd() * T), col([214, 160, 120], 1));
+  fill(14, [236, 236, 230], 0.08);
+  for (var wy2 = 0; wy2 < T; wy2 += 5) for (var wx2 = 0; wx2 < T; wx2++) px(14, wx2, wy2, col([204, 200, 192], 1));
+  fill(17, [150, 104, 54], 0.12);
+  for (var cy2 = 0; cy2 < T; cy2 += 4) for (var cx2 = 0; cx2 < T; cx2++) px(17, cx2, cy2, col([110, 74, 36], 0.9));
+  for (var cb = 0; cb < T; cb++) { px(17, cb, 0, col([70, 70, 74], 1)); px(17, cb, 15, col([70, 70, 74], 1)); px(17, 0, cb, col([70, 70, 74], 1)); px(17, 15, cb, col([70, 70, 74], 1)); }
+  for (var lk = 7; lk <= 8; lk++) for (var lk2 = 6; lk2 <= 8; lk2++) px(17, lk, lk2, col([220, 180, 60], 1));
+
   var tex = new THREE.CanvasTexture(atlas);
   tex.magFilter = THREE.NearestFilter;
   tex.minFilter = THREE.NearestFilter;
@@ -483,7 +501,11 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     6: { top: 7, side: 7, bottom: 7, name: "ألواح" },
     7: { top: 8, side: 8, bottom: 8, name: "رمل" },
     8: { top: 9, side: 9, bottom: 9, name: "طوب" },
-    9: { top: 10, side: 11, bottom: 6, name: "طاولة صنع" }
+    9: { top: 10, side: 11, bottom: 6, name: "طاولة صنع" },
+    10: { top: 12, side: 12, bottom: 12, name: "حجر فحم" },
+    11: { top: 13, side: 13, bottom: 13, name: "حجر حديد" },
+    12: { top: 14, side: 14, bottom: 14, name: "صوف" },
+    13: { top: 17, side: 17, bottom: 17, name: "صندوق" }
   };
 
   /* ---------- chunk meshing ---------- */
@@ -796,7 +818,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
   /* ---------- creatures and daylight ---------- */
   var MOBS = [], mobTimer = 0, animalTimer = 0, playerHp = 10, hurtCool = 0, hurtFlash = 0, sinceHurt = 99, regenT = 0, dead = false, attackCool = 0;
   var MOB_HP = { zombie: 10, skeleton: 8, cow: 10, pig: 10, sheep: 8, chicken: 4 };
-  var DROP = { cow: 24, pig: 24, sheep: 24, chicken: 26 };
+  var DROP = { cow: 24, pig: 24, sheep: 12, chicken: 26 };
   var DAY_LEN = 240, worldT = (saved && isFinite(saved.wt)) ? saved.wt : 0.25, daylight = 1, worldBright = 1;
   var skyDay = new THREE.Color(0x8ec5ee), skyNight = new THREE.Color(0x0b1430), skyDusk = new THREE.Color(0xe98a58), skyCur = new THREE.Color();
   var heartsEl = document.getElementById("hearts"), hurtEl = document.getElementById("hurt"), heartCells = [];
@@ -1108,17 +1130,18 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
   }
 
   /* breaking takes time: harder blocks take longer, the right tool speeds it up */
-  var HARD = { 1: 0.6, 2: 0.6, 3: 3.0, 4: 2.0, 5: 0.3, 6: 1.5, 7: 0.5, 8: 3.0, 9: 1.5 };
-  var CAT = { 1: "shovel", 2: "shovel", 7: "shovel", 3: "pick", 8: "pick", 4: "axe", 6: "axe", 9: "axe" };
-  var TOOLS = { 21: { cat: "pick", mult: 2 }, 28: { cat: "pick", mult: 4 }, 25: { cat: "axe", mult: 2 }, 27: { cat: "shovel", mult: 2 } };
-  var NEEDS_TIER = { 3: 1, 8: 1 };
-  function hasPick() { return countItem(21) + countItem(28) > 0; }
+  var HARD = { 1: 1.0, 2: 1.0, 3: 6.0, 4: 3.0, 5: 0.6, 6: 2.5, 7: 1.0, 8: 6.0, 9: 3.0, 10: 8.0, 11: 10.0, 12: 1.2, 13: 3.0 };
+  var CAT = { 1: "shovel", 2: "shovel", 7: "shovel", 3: "pick", 8: "pick", 10: "pick", 11: "pick", 4: "axe", 6: "axe", 9: "axe", 13: "axe" };
+  var TOOLS = { 21: { cat: "pick", mult: 2 }, 28: { cat: "pick", mult: 4 }, 25: { cat: "axe", mult: 2 }, 27: { cat: "shovel", mult: 2 }, 31: { cat: "axe", mult: 4 }, 32: { cat: "shovel", mult: 4 } };
+  var NEEDS_TIER = { 3: 1, 8: 1, 10: 1, 11: 2 };
+  function hasTier(t) { return t === 1 ? countItem(21) + countItem(28) > 0 : countItem(28) > 0; }
   function breakTime(bid) {
     var t = HARD[bid] || 1, st = inv[sel], tool = st ? TOOLS[st.id] : null;
     if (tool && CAT[bid] === tool.cat) t /= tool.mult;
     return t;
   }
   var breakT = 0, breakKey = "", breakPtr = false, brkBtn = false, crackM = null, toastCool = 0;
+  var holdArmed = false, holdYaw = 0, holdPitch = 0;
   function setCrack(h, p) {
     if (!crackM) return;
     if (!h) { crackM.visible = false; return; }
@@ -1128,16 +1151,17 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
   }
   function resetBreak() { breakT = 0; breakKey = ""; setCrack(null); }
   function breakTick(dt) {
-    var held = !paused && (breakPtr || brkBtn);
+    if (breakPtr && (Math.abs(P.yaw - holdYaw) + Math.abs(P.pitch - holdPitch)) > 0.02) holdArmed = false;
+    var held = !paused && ((breakPtr && holdArmed) || brkBtn);
     if (!held) { resetBreak(); return; }
     var h = pick();
     var m = mobHit(h ? h.t : 6);
     if (m) { resetBreak(); if (attackCool <= 0) { attackCool = 0.35; hitMob(m); } return; }
     if (!h || h.y <= 0) { resetBreak(); return; }
     var bid = get(h.x, h.y, h.z);
-    if (NEEDS_TIER[bid] && !hasPick()) {
+    if (NEEDS_TIER[bid] && !hasTier(NEEDS_TIER[bid])) {
       resetBreak();
-      if (toastCool <= 0) { toast("تحتاج معولاً لكسر هذا الحجر"); toastCool = 1.5; }
+      if (toastCool <= 0) { toast(NEEDS_TIER[bid] === 2 ? "يحتاج خام الحديد معولاً حجرياً" : "تحتاج معولاً لكسر هذا الحجر"); toastCool = 1.5; }
       return;
     }
     toastCool = Math.max(0, toastCool - dt);
@@ -1149,7 +1173,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     if (breakT >= need) { breakT = 0; breakKey = ""; finishBreak(h, bid); }
   }
   function finishBreak(h, bid) {
-    if (addItem(bid, 1) > 0) { toast("الحقيبة ممتلئة"); return; }
+    if (addItem(bid === 10 ? 30 : bid, 1) > 0) { toast("الحقيبة ممتلئة"); return; }
     setBlock(h.x, h.y, h.z, 0);
     setCrack(null);
   }
@@ -1160,6 +1184,20 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
       for (var s1 = 0; s1 < 9; s1++) c.fillRect(4 + s1, 11 - s1, 2, 2);
       c.fillStyle = "#7a5530";
       c.fillRect(2, 12, 3, 2); c.fillRect(3, 9, 5, 1); c.fillRect(3, 13, 2, 2);
+      return true;
+    }
+    if (id === 30) {
+      c.fillStyle = "#2a2a2e";
+      c.fillRect(4, 6, 8, 6); c.fillRect(5, 4, 6, 2); c.fillRect(6, 12, 4, 2);
+      c.fillStyle = "#5a5a62"; c.fillRect(6, 6, 2, 2);
+      return true;
+    }
+    if (id === 31 || id === 32) {
+      c.fillStyle = "#7a5530";
+      for (var sh3 = 0; sh3 < 7; sh3++) c.fillRect(5 + sh3, 10 - sh3, 2, 2);
+      c.fillStyle = "#9a9ca3";
+      if (id === 31) { c.fillRect(2, 2, 6, 5); c.fillRect(7, 4, 4, 6); }
+      else { c.fillRect(3, 2, 6, 5); c.fillRect(2, 4, 8, 3); }
       return true;
     }
     if (id === 25 || id === 27 || id === 28) {
@@ -1201,7 +1239,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
   var craftWrap = document.getElementById("craftWrap"), invTitle = document.getElementById("invTitle");
   var invHotEl = document.getElementById("invHot"), mainEl = document.getElementById("mainGrid");
 
-  var NAMES = { 20: "عصا", 21: "معول خشبي", 22: "سيف خشبي", 24: "لحم خام", 25: "فأس خشبي", 26: "ريشة", 27: "مجرفة خشبية", 28: "معول حجري", 29: "سيف حجري" };
+  var NAMES = { 20: "عصا", 21: "معول خشبي", 22: "سيف خشبي", 24: "لحم خام", 25: "فأس خشبي", 26: "ريشة", 27: "مجرفة خشبية", 28: "معول حجري", 29: "سيف حجري", 30: "فحم", 31: "فأس حجري", 32: "مجرفة حجرية" };
   var NEEDS_PICK = { 3: 1, 8: 1 };
   var KEY = { P: 6, L: 4, S: 20, X: 3 };
   var RECIPES = [
@@ -1214,7 +1252,10 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     { pat: ["PP", "PS", " S"], out: { id: 25, n: 1 } },
     { pat: ["P", "S", "S"], out: { id: 27, n: 1 } },
     { pat: ["XXX", " S ", " S "], out: { id: 28, n: 1 } },
-    { pat: ["X", "X", "S"], out: { id: 29, n: 1 } }
+    { pat: ["X", "X", "S"], out: { id: 29, n: 1 } },
+    { pat: ["XX", "XS", " S"], out: { id: 31, n: 1 } },
+    { pat: ["X", "S", "S"], out: { id: 32, n: 1 } },
+    { pat: ["PPP", "P P", "PPP"], out: { id: 13, n: 1 } }
   ];
   function nameOf(id) { return B[id] ? B[id].name : NAMES[id]; }
   function starterInv() {
@@ -1480,7 +1521,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
   var ptr = new Map();
   cv.addEventListener("pointerdown", function (e) {
     ptr.set(e.pointerId, { x: e.clientX, y: e.clientY, moved: 0, t: performance.now(), b: e.button, type: e.pointerType });
-    if (e.button !== 2) breakPtr = true;
+    if (e.button !== 2) { breakPtr = true; holdArmed = true; holdYaw = P.yaw; holdPitch = P.pitch; }
     try { cv.setPointerCapture(e.pointerId); } catch (err) {}
     cv.focus({ preventScroll: true });
     if (e.pointerType === "mouse" && !document.pointerLockElement && cv.requestPointerLock) {
@@ -1499,7 +1540,10 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     if (!p) return;
     ptr.delete(e.pointerId);
     if (ptr.size === 0) breakPtr = false;
-    if (e.type === "pointerup" && p.moved < 9 && performance.now() - p.t < 380 && p.b === 2) doPlace();
+    if (e.type === "pointerup" && p.moved < 9 && performance.now() - p.t < 380) {
+      if (p.b === 2) doPlace();
+      else { var th = pick(), tm = mobHit(th ? th.t : 6); if (tm && attackCool <= 0) { attackCool = 0.35; hitMob(tm); } }
+    }
   }
   cv.addEventListener("pointerup", up);
   cv.addEventListener("pointercancel", up);
