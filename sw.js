@@ -1,4 +1,4 @@
-const CACHE = 'cubes-v15';
+const CACHE = 'cubes-v16';
 const THREE = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
 const LOCAL = ['./', 'index.html', 'splash-1170.png', 'splash-1290.png', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png'];
 
