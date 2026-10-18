@@ -170,6 +170,19 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
 .grid9 .slot2 { width: auto; height: auto; aspect-ratio: 1 / 1; }
 #invscreen .small { color: #3b372f; text-shadow: none; max-width: none; margin: 0; font-size: 12px; }
 .toast { position: absolute; left: 50%; bottom: 150px; transform: translateX(-50%); background: var(--panel); border: 2px solid var(--paper); padding: 6px 12px; font-weight: 800; white-space: nowrap; pointer-events: none; z-index: 12; }
+.invbtns { display: flex; gap: 10px; width: 100%; }
+.invbtns .btn { flex: 1; height: 46px; }
+.rcell .cnt { position: absolute; right: 2px; bottom: 0; font: 800 13px/1 var(--font); color: #fff; text-shadow: 2px 2px 0 #333; pointer-events: none; }
+.booklist { display: flex; flex-direction: column; gap: 10px; width: 100%; max-height: 52vh; overflow: auto; padding: 2px; box-sizing: border-box; }
+.rcard { display: grid; grid-template-columns: auto auto auto 1fr; align-items: center; gap: 10px; background: #b4ae9f; border: 2px solid #3b372f; padding: 8px; box-shadow: inset 2px 2px 0 #d8d2c2; }
+.rgrid { display: grid; gap: 2px; }
+.rgrid.g2 { grid-template-columns: repeat(2, 40px); }
+.rgrid.g3 { grid-template-columns: repeat(3, 34px); }
+.rcell { position: relative; aspect-ratio: 1 / 1; background: #8b8680; border: 2px solid; border-color: #3f3b36 #fbfaf5 #fbfaf5 #3f3b36; display: flex; align-items: center; justify-content: center; }
+.rcell canvas { width: 72%; height: 72%; image-rendering: pixelated; }
+.rcell.out { width: 46px; height: 46px; }
+.small-arrow { border-left-width: 16px; border-top-width: 9px; border-bottom-width: 9px; }
+.rname { font-weight: 800; font-size: 15px; color: #2f2b25; }
 </style>
 </head>
 <body>
@@ -242,7 +255,16 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
       <div class="invlabel">الشريط السريع</div>
       <div id="invHot" class="grid9"></div>
       <p class="small">اضغط على خانة لتحمل قطعتها ثم اضغط خانة أخرى لنقلها. الزر الأيمن ينقل قطعة واحدة. اضغط على الناتج لصنعه.</p>
-      <button class="btn mcb" id="invClose" type="button">إغلاق</button>
+      <div class="invbtns"><button class="btn mcb" id="invBook" type="button">الوصفات</button><button class="btn mcb" id="invClose" type="button">إغلاق</button></div>
+    </div>
+  </div>
+
+  <div class="screen dim" id="bookscreen" hidden>
+    <div class="invpanel">
+      <h2>الوصفات</h2>
+      <p class="small">كل وصفة تُصنع في الشبكة كما هي مرسومة. الخانات الفارغة تبقى فارغة.</p>
+      <div id="bookList" class="booklist"></div>
+      <button class="btn mcb" id="bookBack" type="button">رجوع</button>
     </div>
   </div>
 
@@ -251,6 +273,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
       <h2>الخيارات</h2>
       <button class="btn mcb" id="rdBtn" type="button">مسافة الرؤية: 5</button>
       <button class="btn mcb" id="nwBtn" type="button">عالم جديد</button>
+      <button class="btn mcb" id="qualBtn" type="button">جودة الرسومات</button>
       <button class="btn mcb" id="optBack" type="button">تم</button>
     </div>
   </div>
@@ -354,7 +377,13 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
       var ey = Math.floor(idx / (CS * CS));
       if (e[k] && ey > top) top = ey;
     }
-    return { cx: cx, cz: cz, d: d, top: Math.min(H - 1, top + 1) };
+    var sky = new Int16Array(CS * CS);
+    for (lz = 0; lz < CS; lz++) for (lx = 0; lx < CS; lx++) {
+      var hy = H - 1;
+      while (hy > 0 && !d[lx + CS * (lz + CS * hy)]) hy--;
+      sky[lx + CS * lz] = hy;
+    }
+    return { cx: cx, cz: cz, d: d, top: Math.min(H - 1, top + 1), sky: sky };
   }
 
   function getChunk(cx, cz) {
@@ -462,6 +491,8 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     meshes.delete(k);
   }
 
+  var AO_LEVEL = [0.55, 0.7, 0.85, 1];
+  function solidAt(x, y, z) { return get(x, y, z) > 0 ? 1 : 0; }
   function buildChunkMesh(cx, cz) {
     var k = ckey(cx, cz);
     dropMesh(k);
@@ -470,21 +501,35 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     for (var y = 0; y <= c.top; y++) for (var lz = 0; lz < CS; lz++) for (var lx = 0; lx < CS; lx++) {
       var b = d[lx + CS * (lz + CS * y)];
       if (!b) continue;
-      var def = B[b];
+      var def = B[b], gx = x0 + lx, gz = z0 + lz;
+      var under = y < 22 ? 0.8 : 1;
       for (var fi = 0; fi < 6; fi++) {
         var f = FACES[fi], nx = lx + f.d[0], ny = y + f.d[1], nz = lz + f.d[2], nb;
         if (ny < 0) nb = 3;
         else if (ny >= H) nb = 0;
         else if (nx >= 0 && nx < CS && nz >= 0 && nz < CS) nb = d[nx + CS * (nz + CS * ny)];
-        else nb = get(x0 + nx, ny, z0 + nz);
+        else nb = get(gx + f.d[0], ny, gz + f.d[2]);
         if (nb) continue;
         var tile = f.k === "t" ? def.top : f.k === "b" ? def.bottom : def.side;
         var u0 = tile / NT + 0.0006, u1 = (tile + 1) / NT - 0.0006;
+        var ax = f.d[0] !== 0 ? 0 : f.d[1] !== 0 ? 1 : 2, tA = (ax + 1) % 3, tB = (ax + 2) % 3;
         for (var i = 0; i < 4; i++) {
           var cc = f.c[i];
           pos.push(lx + cc[0], y + cc[1], lz + cc[2]);
           uv.push(i === 0 || i === 3 ? u0 : u1, i < 2 ? 0 : 1);
-          var sh = f.s * (y < 22 ? 0.78 : 1); cl.push(sh, sh, sh);
+          var ao = 3;
+          if (aoOn) {
+            var sa = cc[tA] === 1 ? 1 : -1, sb = cc[tB] === 1 ? 1 : -1;
+            var p1 = [0, 0, 0], p2 = [0, 0, 0], p3 = [0, 0, 0];
+            p1[ax] = f.d[ax]; p2[ax] = f.d[ax]; p3[ax] = f.d[ax];
+            p1[tA] = sa; p2[tB] = sb; p3[tA] = sa; p3[tB] = sb;
+            var o1 = solidAt(gx + p1[0], y + p1[1], gz + p1[2]);
+            var o2 = solidAt(gx + p2[0], y + p2[1], gz + p2[2]);
+            var o3 = solidAt(gx + p3[0], y + p3[1], gz + p3[2]);
+            ao = (o1 && o2) ? 0 : 3 - (o1 + o2 + o3);
+          }
+          var shade = f.s * under * AO_LEVEL[ao];
+          cl.push(shade, shade, shade);
         }
         ind.push(n, n + 1, n + 2, n, n + 2, n + 3);
         n += 4;
@@ -511,6 +556,9 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     if (y < 1 || y >= H) return;
     var cx = x >> 4, cz = z >> 4, c = getChunk(cx, cz), lidx = (x & 15) + CS * ((z & 15) + CS * y);
     c.d[lidx] = b;
+    var scol = (x & 15) + CS * (z & 15);
+    if (b) { if (y > c.sky[scol]) c.sky[scol] = y; }
+    else if (y === c.sky[scol]) { var sy2 = y - 1; while (sy2 > 0 && !c.d[(x & 15) + CS * ((z & 15) + CS * sy2)]) sy2--; c.sky[scol] = sy2; }
     if (b && y > c.top) c.top = Math.min(H - 1, y + 1);
     var k = ckey(cx, cz);
     (edits[k] || (edits[k] = {}))[lidx] = b;
@@ -527,10 +575,19 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
   var app = document.getElementById("app");
   var cv = document.getElementById("view");
   var renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: false });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  var quality = (saved && isFinite(saved.q)) ? saved.q : (("ontouchstart" in window) ? 1 : 2);
+  var aoOn = true, QNAMES = ["منخفضة", "متوسطة", "عالية"];
+  function applyQuality() {
+    var dpr = window.devicePixelRatio || 1;
+    renderer.setPixelRatio(quality === 0 ? 0.6 : quality === 1 ? Math.min(dpr, 1.25) : Math.min(dpr, 2));
+    aoOn = quality > 0;
+  }
   var SKY = 0x8ec5ee;
   scene.background = new THREE.Color(SKY);
   scene.fog = new THREE.Fog(SKY, 30, 70);
+  var sunM = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), new THREE.MeshBasicMaterial({ color: 0xfff1b8, fog: false, side: THREE.DoubleSide }));
+  var moonM = new THREE.Mesh(new THREE.PlaneGeometry(10, 10), new THREE.MeshBasicMaterial({ color: 0xe4ebff, fog: false, side: THREE.DoubleSide }));
+  scene.add(sunM); scene.add(moonM);
   var camera = new THREE.PerspectiveCamera(72, 1, 0.05, 200);
   camera.rotation.order = "YXZ";
 
@@ -543,6 +600,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
   if (window.ResizeObserver) new ResizeObserver(resize).observe(app);
   window.addEventListener("resize", resize);
   resize();
+  applyQuality();
 
   var isTouch = ("ontouchstart" in window) || navigator.maxTouchPoints > 0;
   var RADII = [3, 5, 7, 9];
@@ -715,15 +773,20 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     refreshInv();
   }
 
-  /* ---------- creatures ---------- */
-  var MOBS = [], mobTimer = 0, playerHp = 10, hurtCool = 0, hurtFlash = 0, sinceHurt = 99, regenT = 0, dead = false, attackCool = 0;
+  /* ---------- creatures and daylight ---------- */
+  var MOBS = [], mobTimer = 0, animalTimer = 0, playerHp = 10, hurtCool = 0, hurtFlash = 0, sinceHurt = 99, regenT = 0, dead = false, attackCool = 0;
+  var MOB_HP = { zombie: 10, skeleton: 8, cow: 10, pig: 10, sheep: 8, chicken: 4 };
+  var DROP = { cow: 24, pig: 24, sheep: 24, chicken: 26 };
+  var DAY_LEN = 240, worldT = (saved && isFinite(saved.wt)) ? saved.wt : 0.25, daylight = 1, worldBright = 1;
+  var skyDay = new THREE.Color(0x8ec5ee), skyNight = new THREE.Color(0x0b1430), skyDusk = new THREE.Color(0xe98a58), skyCur = new THREE.Color();
   var heartsEl = document.getElementById("hearts"), hurtEl = document.getElementById("hurt"), heartCells = [];
   for (var hi = 0; hi < 10; hi++) { var hc = document.createElement("span"); heartsEl.appendChild(hc); heartCells.push(hc); }
-  function renderHearts() {
-    for (var i = 0; i < 10; i++) heartCells[i].className = i < playerHp ? "" : "e";
-  }
+  function renderHearts() { for (var i = 0; i < 10; i++) heartCells[i].className = i < playerHp ? "" : "e"; }
   renderHearts();
 
+  function skyY(x, z) { return getChunk(x >> 4, z >> 4).sky[(x & 15) + CS * (z & 15)]; }
+  function exposed(x, y, z) { return y > skyY(x, z); }
+  function swordHeld() { return !!(inv[sel] && inv[sel].id === 22); }
   function clearLine(x1, y1, z1, x2, y2, z2) {
     var dx = x2 - x1, dy = y2 - y1, dz = z2 - z1, n = Math.ceil(Math.sqrt(dx * dx + dy * dy + dz * dz) * 4);
     for (var i = 1; i < n; i++) {
@@ -737,21 +800,46 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     m.position.set(x, y, z);
     return m;
   }
-  function buildMob(type) {
+  function buildMob(kind) {
     var g = new THREE.Group(), mats = [];
     function part(w, h, d, x, y, z, c) { var m = makeBox(w, h, d, x, y, z, c); g.add(m); mats.push(m.material); }
-    if (type === "zombie") {
+    if (kind === "zombie") {
       part(0.5, 0.5, 0.5, 0, 1.55, 0, 0x5fae4a);
       part(0.1, 0.1, 0.02, -0.12, 1.6, 0.26, 0x1a2a10); part(0.1, 0.1, 0.02, 0.12, 1.6, 0.26, 0x1a2a10);
       part(0.5, 0.75, 0.25, 0, 1.0, 0, 0x2f7fb0);
       part(0.2, 0.7, 0.2, -0.36, 1.0, 0, 0x5fae4a); part(0.2, 0.7, 0.2, 0.36, 1.0, 0, 0x5fae4a);
       part(0.22, 0.75, 0.22, -0.13, 0.38, 0, 0x2c3d8a); part(0.22, 0.75, 0.22, 0.13, 0.38, 0, 0x2c3d8a);
-    } else {
+    } else if (kind === "skeleton") {
       part(0.5, 0.5, 0.5, 0, 1.55, 0, 0xe6e2d3);
       part(0.12, 0.12, 0.02, -0.12, 1.6, 0.26, 0x222222); part(0.12, 0.12, 0.02, 0.12, 1.6, 0.26, 0x222222);
       part(0.42, 0.7, 0.2, 0, 1.0, 0, 0xcfcab8);
       part(0.12, 0.7, 0.12, -0.32, 1.0, 0, 0xe6e2d3); part(0.12, 0.7, 0.12, 0.32, 1.0, 0, 0xe6e2d3);
       part(0.13, 0.75, 0.13, -0.12, 0.38, 0, 0xd8d3c0); part(0.13, 0.75, 0.13, 0.12, 0.38, 0, 0xd8d3c0);
+    } else if (kind === "cow") {
+      part(0.9, 0.75, 1.3, 0, 1.0, 0, 0x7a5232);
+      part(0.5, 0.42, 0.42, 0.18, 1.1, 0.1, 0xf2efe6);
+      part(0.55, 0.5, 0.5, 0, 1.25, 0.85, 0x7a5232);
+      part(0.3, 0.2, 0.1, 0, 1.1, 1.12, 0xe6b8a0);
+      part(0.08, 0.14, 0.08, -0.22, 1.55, 0.8, 0xf2efe6); part(0.08, 0.14, 0.08, 0.22, 1.55, 0.8, 0xf2efe6);
+      part(0.22, 0.6, 0.22, -0.3, 0.3, -0.45, 0x3a2a1c); part(0.22, 0.6, 0.22, 0.3, 0.3, -0.45, 0x3a2a1c);
+      part(0.22, 0.6, 0.22, -0.3, 0.3, 0.45, 0x3a2a1c); part(0.22, 0.6, 0.22, 0.3, 0.3, 0.45, 0x3a2a1c);
+    } else if (kind === "pig") {
+      part(0.9, 0.7, 1.2, 0, 0.95, 0, 0xf0a0a8);
+      part(0.55, 0.5, 0.45, 0, 1.1, 0.8, 0xf0a0a8);
+      part(0.28, 0.2, 0.1, 0, 1.05, 1.05, 0xd27e88);
+      part(0.22, 0.4, 0.22, -0.3, 0.2, -0.4, 0xd88f98); part(0.22, 0.4, 0.22, 0.3, 0.2, -0.4, 0xd88f98);
+      part(0.22, 0.4, 0.22, -0.3, 0.2, 0.4, 0xd88f98); part(0.22, 0.4, 0.22, 0.3, 0.2, 0.4, 0xd88f98);
+    } else if (kind === "sheep") {
+      part(1.0, 0.85, 1.3, 0, 1.0, 0, 0xf4f4f0);
+      part(0.5, 0.5, 0.5, 0, 1.25, 0.9, 0x6e6a66);
+      part(0.2, 0.6, 0.2, -0.32, 0.3, -0.42, 0x4c4843); part(0.2, 0.6, 0.2, 0.32, 0.3, -0.42, 0x4c4843);
+      part(0.2, 0.6, 0.2, -0.32, 0.3, 0.42, 0x4c4843); part(0.2, 0.6, 0.2, 0.32, 0.3, 0.42, 0x4c4843);
+    } else {
+      part(0.42, 0.38, 0.52, 0, 0.6, 0, 0xf5f2ea);
+      part(0.28, 0.3, 0.28, 0, 0.95, 0.2, 0xf5f2ea);
+      part(0.1, 0.1, 0.1, 0, 1.12, 0.2, 0xd33b2c);
+      part(0.1, 0.08, 0.12, 0, 0.92, 0.37, 0xf0b429);
+      part(0.06, 0.3, 0.06, -0.1, 0.15, 0, 0xf0b429); part(0.06, 0.3, 0.06, 0.1, 0.15, 0, 0xf0b429);
     }
     scene.add(g);
     return { group: g, mats: mats };
@@ -762,33 +850,37 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     var i = MOBS.indexOf(m);
     if (i >= 0) MOBS.splice(i, 1);
   }
-  function trySpawn() {
-    var ang = Math.random() * Math.PI * 2, dist = 16 + Math.random() * 8;
-    var x = Math.floor(P.x + Math.cos(ang) * dist), z = Math.floor(P.z + Math.sin(ang) * dist);
-    var type, y;
-    if (Math.random() < 0.5) {
-      var yy = H - 2;
-      while (yy > 0 && !solid(x, yy, z)) yy--;
-      if (yy < SEA + 1) return;
-      type = "zombie"; y = yy + 1;
-    } else {
-      var cy = -1;
-      for (var tries = 0; tries < 16 && cy < 0; tries++) {
-        var c = 4 + Math.floor(Math.random() * (H - 10));
-        if (solid(x, c, z) || solid(x, c + 1, z) || !solid(x, c - 1, z)) continue;
-        var covered = false;
-        for (var j = c + 2; j < H; j++) if (solid(x, j, z)) { covered = true; break; }
-        if (covered) cy = c;
-      }
-      if (cy < 0) return;
-      type = "skeleton"; y = cy;
-    }
-    var b = buildMob(type);
+  function countKind(hostile) {
+    var c = 0;
+    for (var i = 0; i < MOBS.length; i++) if (MOBS[i].hostile === hostile) c++;
+    return c;
+  }
+  function addMob(kind, x, y, z, hostile) {
+    var b = buildMob(kind);
     MOBS.push({
-      type: type, x: x + 0.5, y: y, z: z + 0.5, vy: 0, ground: false,
-      hp: type === "zombie" ? 10 : 8, cool: 1, hit: 0, kbx: 0, kbz: 0, vx: 0, vz: 0,
-      group: b.group, mats: b.mats, base: b.mats.map(function (mt) { return mt.color.getHex(); })
+      type: kind, hostile: hostile, x: x, y: y, z: z, vy: 0, ground: false,
+      hp: MOB_HP[kind], cool: 1, hit: 0, burnT: 0, burning: false, fleeT: 0, wanderT: 0, dirA: 0, moving: false,
+      kbx: 0, kbz: 0, vx: 0, vz: 0, group: b.group, mats: b.mats,
+      base: b.mats.map(function (mt) { return mt.color.getHex(); })
     });
+  }
+  function trySpawnHostile() {
+    var ang = Math.random() * Math.PI * 2, dist = 14 + Math.random() * 10;
+    var x = Math.floor(P.x + Math.cos(ang) * dist), z = Math.floor(P.z + Math.sin(ang) * dist);
+    for (var tries = 0; tries < 12; tries++) {
+      var cy = 4 + Math.floor(Math.random() * (H - 10));
+      if (exposed(x, cy, z) || solid(x, cy, z) || solid(x, cy + 1, z) || !solid(x, cy - 1, z)) continue;
+      addMob(Math.random() < 0.4 ? "zombie" : "skeleton", x + 0.5, cy, z + 0.5, true);
+      return;
+    }
+  }
+  var ANIMALS = ["cow", "pig", "sheep", "chicken"];
+  function trySpawnAnimal() {
+    var ang = Math.random() * Math.PI * 2, dist = 14 + Math.random() * 10;
+    var x = Math.floor(P.x + Math.cos(ang) * dist), z = Math.floor(P.z + Math.sin(ang) * dist);
+    var ty = skyY(x, z);
+    if (ty < SEA + 1 || ty + 1 >= H || get(x, ty, z) !== 1) return;
+    addMob(ANIMALS[Math.floor(Math.random() * ANIMALS.length)], x + 0.5, ty + 1, z + 0.5, false);
   }
   function damagePlayer(amount) {
     if (dead || paused || hurtCool > 0) return;
@@ -796,6 +888,22 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     hurtCool = 0.5; hurtFlash = 1; sinceHurt = 0; regenT = 0;
     renderHearts();
     if (playerHp <= 0) { dead = true; setScreen("dead"); }
+  }
+  function updateWorldLight(dt) {
+    worldT = (worldT + dt / DAY_LEN) % 1;
+    var a = worldT * Math.PI * 2, hgt = Math.sin(a);
+    daylight = Math.max(0, Math.min(1, (hgt + 0.12) / 0.3));
+    worldBright = 0.2 + 0.8 * daylight;
+    skyCur.copy(skyNight).lerp(skyDay, daylight);
+    skyCur.lerp(skyDusk, Math.max(0, 1 - Math.abs(hgt) / 0.3) * 0.65);
+    scene.background.copy(skyCur);
+    scene.fog.color.copy(skyCur);
+    mat.color.setRGB(worldBright, worldBright, worldBright);
+    var px = camera.position.x, py = camera.position.y, pz = camera.position.z;
+    sunM.position.set(px + Math.cos(a) * 80, py + hgt * 80, pz + 20);
+    moonM.position.set(px - Math.cos(a) * 80, py - hgt * 80, pz - 20);
+    sunM.lookAt(camera.position); moonM.lookAt(camera.position);
+    sunM.visible = hgt > -0.05; moonM.visible = hgt < 0.05;
   }
   function updateMobs(dt) {
     hurtCool = Math.max(0, hurtCool - dt);
@@ -807,24 +915,40 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
       regenT += dt;
       if (regenT >= 3) { regenT = 0; playerHp++; renderHearts(); }
     }
-    mobTimer += dt;
-    if (mobTimer > 1.6 && MOBS.length < 14) { mobTimer = 0; trySpawn(); }
+    if (dead) return;
+    mobTimer += dt; animalTimer += dt;
+    if (mobTimer > 1.4 && countKind(true) < 12) { mobTimer = 0; trySpawnHostile(); }
+    if (animalTimer > 2.5 && countKind(false) < 10) { animalTimer = 0; trySpawnAnimal(); }
     for (var i = MOBS.length - 1; i >= 0; i--) {
       var m = MOBS[i];
       var dx = P.x - m.x, dz = P.z - m.z, d = Math.sqrt(dx * dx + dz * dz);
-      if (d > 48 || m.y < -10) { removeMob(m); continue; }
-      m.cool = Math.max(0, m.cool - dt);
-      m.hit = Math.max(0, m.hit - dt);
+      if (d > 56 || m.y < -10) { removeMob(m); continue; }
+      var cellY = Math.floor(m.y + 0.5);
+      var under = !exposed(Math.floor(m.x), cellY, Math.floor(m.z));
+      m.cool = Math.max(0, m.cool - dt); m.hit = Math.max(0, m.hit - dt); m.fleeT = Math.max(0, m.fleeT - dt);
       var nxp = d > 0.001 ? dx / d : 0, nzp = d > 0.001 ? dz / d : 0;
-      var want = 0, wz = 0, speed = m.type === "zombie" ? 2.1 : 1.6;
-      if (m.type === "zombie") {
-        if (d < 26) { want = nxp; wz = nzp; }
-        if (d < 1.2 && m.cool === 0) { damagePlayer(2); m.cool = 1.0; }
+      var want = 0, wz = 0, speed = 1;
+      if (m.hostile) {
+        m.burning = !under && daylight > 0.45;
+        if (m.burning) { m.burnT += dt; if (m.burnT >= 0.5) { m.burnT = 0; m.hp -= 1; } }
+        if (m.hp <= 0) { removeMob(m); continue; }
+        if (m.type === "zombie") {
+          speed = 2.1;
+          if (d < 16) { want = nxp; wz = nzp; }
+          if (d < 1.2 && m.cool === 0) { damagePlayer(2); m.cool = 1; }
+        } else {
+          speed = 1.6;
+          if (d < 5) { want = -nxp; wz = -nzp; }
+          else if (d > 8 && d < 16) { want = nxp; wz = nzp; }
+          if (d < 13 && m.cool === 0 && clearLine(m.x, m.y + 1.5, m.z, P.x, P.y + 1.4, P.z)) { damagePlayer(1); m.cool = 2.2; }
+        }
       } else {
-        if (d < 5) { want = -nxp; wz = -nzp; }
-        else if (d > 8) { want = nxp; wz = nzp; }
-        if (d < 13 && m.cool === 0 && clearLine(m.x, m.y + 1.5, m.z, P.x, P.y + 1.4, P.z)) {
-          damagePlayer(1); m.cool = 2.2;
+        m.wanderT -= dt;
+        if (m.fleeT > 0) { speed = 3; want = -nxp; wz = -nzp; }
+        else {
+          if (m.wanderT <= 0) { m.wanderT = 2 + Math.random() * 4; m.moving = Math.random() < 0.6; m.dirA = Math.random() * Math.PI * 2; }
+          speed = 0.9;
+          if (m.moving) { want = Math.cos(m.dirA); wz = Math.sin(m.dirA); }
         }
       }
       m.vx = want * speed + m.kbx;
@@ -832,25 +956,34 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
       m.kbx *= Math.pow(0.02, dt); m.kbz *= Math.pow(0.02, dt);
       m.vy = Math.max(m.vy - 24 * dt, -30);
       var nx = m.x + m.vx * dt, nz = m.z + m.vz * dt;
-      var bx = hits(nx, m.y, m.z), bz = hits(m.x, m.y, nz);
-      if (!bx) m.x = nx;
-      if (!bz) m.z = nz;
-      if ((bx || bz) && m.ground) { m.vy = 7.8; m.ground = false; }
+      var allowX = m.hostile ? !exposed(Math.floor(nx), cellY, Math.floor(m.z)) : exposed(Math.floor(nx), cellY, Math.floor(m.z));
+      var allowZ = m.hostile ? !exposed(Math.floor(m.x), cellY, Math.floor(nz)) : exposed(Math.floor(m.x), cellY, Math.floor(nz));
+      var bx = hits(nx, m.y, m.z) || !allowX, bz = hits(m.x, m.y, nz) || !allowZ;
+      if (!bx) m.x = nx; else if (!m.hostile) m.dirA += Math.PI;
+      if (!bz) m.z = nz; else if (!m.hostile) m.dirA += Math.PI;
+      if ((bx || bz) && m.ground && m.hostile === false && m.fleeT <= 0) { m.vy = 7.8; m.ground = false; }
+      if ((bx || bz) && m.ground && m.hostile === true) { m.vy = 7.8; m.ground = false; }
       var ny = m.y + m.vy * dt;
       if (!hits(m.x, ny, m.z)) { m.y = ny; m.ground = false; }
       else { if (m.vy < 0) m.ground = true; m.vy = 0; }
       m.group.position.set(m.x, m.y, m.z);
-      m.group.rotation.y = Math.atan2(dx, dz);
-      for (var k = 0; k < m.mats.length; k++) m.mats[k].color.setHex(m.hit > 0 ? 0xff4a4a : m.base[k]);
+      var fx = m.hostile ? dx : m.vx, fz = m.hostile ? dz : m.vz;
+      if (Math.abs(fx) + Math.abs(fz) > 0.01) m.group.rotation.y = Math.atan2(fx, fz);
+      var lit = (m.hostile && under) ? Math.max(0.35, worldBright) : worldBright;
+      for (var k = 0; k < m.mats.length; k++) {
+        if (m.hit > 0) m.mats[k].color.setHex(0xff5a4a);
+        else if (m.burning) m.mats[k].color.setHex(0xff8a2a);
+        else m.mats[k].color.setHex(m.base[k]).multiplyScalar(lit);
+      }
     }
   }
   function rayBox(ox, oy, oz, dx, dy, dz, x0, y0, z0, x1, y1, z1) {
-    var o = [ox, oy, oz], dd = [dx, dy, dz], lo = [x0, y0, z0], hi = [x1, y1, z1];
+    var o = [ox, oy, oz], dd = [dx, dy, dz], lo = [x0, y0, z0], hi2 = [x1, y1, z1];
     var tmin = -Infinity, tmax = Infinity;
     for (var a = 0; a < 3; a++) {
-      if (Math.abs(dd[a]) < 1e-9) { if (o[a] < lo[a] || o[a] > hi[a]) return null; }
+      if (Math.abs(dd[a]) < 1e-9) { if (o[a] < lo[a] || o[a] > hi2[a]) return null; }
       else {
-        var t1 = (lo[a] - o[a]) / dd[a], t2 = (hi[a] - o[a]) / dd[a];
+        var t1 = (lo[a] - o[a]) / dd[a], t2 = (hi2[a] - o[a]) / dd[a];
         if (t1 > t2) { var tt = t1; t1 = t2; t2 = tt; }
         if (t1 > tmin) tmin = t1;
         if (t2 < tmax) tmax = t2;
@@ -872,10 +1005,15 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     return best;
   }
   function hitMob(m) {
-    m.hp -= 2; m.hit = 0.3;
+    m.hp -= swordHeld() ? 4 : 2; m.hit = 0.3;
     var dx = m.x - P.x, dz = m.z - P.z, d = Math.hypot(dx, dz) || 1;
-    m.kbx = dx / d * 6; m.kbz = dz / d * 6; m.vy = 4.5; m.ground = false;
-    if (m.hp <= 0) removeMob(m);
+    var push = m.hostile ? 6 : 3;
+    m.kbx = dx / d * push; m.kbz = dz / d * push; m.vy = 4.5; m.ground = false;
+    if (!m.hostile) m.fleeT = 4;
+    if (m.hp <= 0) {
+      if (DROP[m.type]) addItem(DROP[m.type], 1);
+      removeMob(m);
+    }
   }
   document.getElementById("respawn").addEventListener("click", function () {
     MOBS.slice().forEach(removeMob);
@@ -885,6 +1023,31 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     setScreen(null);
   });
 
+  function drawExtraIcon(c, id) {
+    if (id === 22) {
+      c.fillStyle = "#c9ccd1";
+      for (var s1 = 0; s1 < 9; s1++) c.fillRect(4 + s1, 11 - s1, 2, 2);
+      c.fillStyle = "#7a5530";
+      c.fillRect(2, 12, 3, 2); c.fillRect(3, 9, 5, 1); c.fillRect(3, 13, 2, 2);
+      return true;
+    }
+    if (id === 24) {
+      c.fillStyle = "#c24a4a";
+      c.fillRect(4, 5, 8, 6); c.fillRect(3, 6, 10, 4); c.fillRect(5, 4, 6, 1); c.fillRect(5, 11, 6, 1);
+      c.fillStyle = "#f2d0c8";
+      c.fillRect(6, 7, 3, 1); c.fillRect(9, 9, 2, 1);
+      return true;
+    }
+    if (id === 26) {
+      c.fillStyle = "#f5f2ea";
+      for (var f = 0; f < 8; f++) c.fillRect(3 + f, 12 - f, 2, 2);
+      c.fillStyle = "#c9c4b8";
+      for (var g2 = 0; g2 < 6; g2++) c.fillRect(4 + g2, 11 - g2, 1, 1);
+      return true;
+    }
+    return false;
+  }
+
   /* ---------- hotbar and inventory ---------- */
   var hb = document.getElementById("hotbar"), bname = document.getElementById("bname");
   var hbSlots = [], invEls = [], craftEls = [], outEl = null, cursorEl = null;
@@ -893,7 +1056,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
   var craftWrap = document.getElementById("craftWrap"), invTitle = document.getElementById("invTitle");
   var invHotEl = document.getElementById("invHot"), mainEl = document.getElementById("mainGrid");
 
-  var NAMES = { 20: "عصا", 21: "معول خشبي" };
+  var NAMES = { 20: "عصا", 21: "معول خشبي", 22: "سيف خشبي", 24: "لحم خام", 26: "ريشة" };
   var NEEDS_PICK = { 3: 1, 8: 1 };
   var KEY = { P: 6, L: 4, S: 20, X: 3 };
   var RECIPES = [
@@ -901,7 +1064,8 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     { pat: ["P", "P"], out: { id: 20, n: 4 } },
     { pat: ["PP", "PP"], out: { id: 9, n: 1 } },
     { pat: ["XX", "XX"], out: { id: 8, n: 4 } },
-    { pat: ["PPP", " S ", " S "], out: { id: 21, n: 1 } }
+    { pat: ["PPP", " S ", " S "], out: { id: 21, n: 1 } },
+    { pat: ["P", "P", "S"], out: { id: 22, n: 1 } }
   ];
   function nameOf(id) { return B[id] ? B[id].name : NAMES[id]; }
   function starterInv() {
@@ -916,6 +1080,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     var c = cv.getContext("2d");
     c.clearRect(0, 0, 16, 16);
     c.imageSmoothingEnabled = false;
+    if (drawExtraIcon(c, id)) return;
     if (B[id]) { c.drawImage(atlas, B[id].side * T, 0, T, T, 0, 0, 16, 16); return; }
     if (id === 20) {
       for (var k = 0; k < 12; k++) { c.fillStyle = k % 3 === 0 ? "#f3d59c" : "#8a5a2b"; c.fillRect(2 + k, 13 - k, 2, 2); }
@@ -1081,6 +1246,60 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
   document.getElementById("bagBtn").addEventListener("click", function () { if (!paused) openInv(2); });
   select(saved && saved.sel >= 0 && saved.sel < 9 ? saved.sel : 0);
 
+  var bookFrom = "inv";
+  function buildBook() {
+    var list = document.getElementById("bookList");
+    list.innerHTML = "";
+    RECIPES.forEach(function (r) {
+      var rows = r.pat.length, cols = Math.max.apply(null, r.pat.map(function (p) { return p.length; }));
+      var size = (rows === 3 || cols === 3) ? 3 : 2;
+      var card = document.createElement("div"); card.className = "rcard";
+      var g = document.createElement("div"); g.className = "rgrid g" + size;
+      var oR = Math.floor((size - rows) / 2), oC = Math.floor((size - cols) / 2);
+      for (var i = 0; i < size * size; i++) {
+        var rr = Math.floor(i / size), cc2 = i % size, ch = " ";
+        var pr = r.pat[rr - oR];
+        if (pr && cc2 - oC >= 0 && cc2 - oC < pr.length) ch = pr[cc2 - oC];
+        var cell = document.createElement("div"); cell.className = "rcell";
+        if (ch !== " " && KEY[ch]) {
+          var cv = document.createElement("canvas"); cv.width = 16; cv.height = 16;
+          drawIcon(cv, KEY[ch]); cell.appendChild(cv);
+        }
+        g.appendChild(cell);
+      }
+      var arrow = document.createElement("div"); arrow.className = "arrow small-arrow";
+      var outc = document.createElement("div"); outc.className = "rcell out";
+      var ocv = document.createElement("canvas"); ocv.width = 16; ocv.height = 16;
+      drawIcon(ocv, r.out.id); outc.appendChild(ocv);
+      var cnt = document.createElement("span"); cnt.className = "cnt";
+      cnt.textContent = r.out.n > 1 ? String(r.out.n) : ""; outc.appendChild(cnt);
+      var name = document.createElement("div"); name.className = "rname";
+      name.textContent = nameOf(r.out.id) + (r.out.n > 1 ? " ×" + r.out.n : "");
+      card.appendChild(g); card.appendChild(arrow); card.appendChild(outc); card.appendChild(name);
+      list.appendChild(card);
+    });
+  }
+  function openBook() { bookFrom = screen; setScreen("book"); buildBook(); }
+  function closeBook() { setScreen(bookFrom); refreshInv(); }
+  document.getElementById("invBook").addEventListener("click", openBook);
+  document.getElementById("bookBack").addEventListener("click", closeBook);
+  function rebuildAll() {
+    var list = [];
+    meshes.forEach(function (m) { list.push(m.userData); });
+    list.forEach(function (u) { buildChunkMesh(u.cx, u.cz); });
+  }
+  var qualBtn = document.getElementById("qualBtn");
+  function qualLabel() { qualBtn.textContent = "جودة الرسومات: " + QNAMES[quality]; }
+  qualLabel();
+  qualBtn.addEventListener("click", function () {
+    var wasAO = aoOn;
+    quality = (quality + 1) % 3;
+    applyQuality();
+    if (wasAO !== aoOn) rebuildAll();
+    qualLabel();
+    save();
+  });
+
   /* ---------- input ---------- */
   if (isTouch) app.classList.add("touch");
   document.getElementById("help").textContent = isTouch
@@ -1091,7 +1310,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     keys[e.code] = true;
     if (e.code === "KeyF" && !paused) toggleFly();
     if (e.code === "KeyE") { if (screen === "inv") closeInv(); else if (!paused) openInv(2); }
-    if (e.code === "Escape") { if (screen === "inv") closeInv(); else if (!paused) setScreen("pause"); else if (screen === "pause") setScreen(null); }
+    if (e.code === "Escape") { if (screen === "inv") closeInv(); else if (screen === "book") closeBook(); else if (!paused) setScreen("pause"); else if (screen === "pause") setScreen(null); }
     var n = parseInt(e.key, 10);
     if (n >= 1 && n <= 9) select(n - 1);
     if (e.code === "Space" || e.code.indexOf("Arrow") === 0) e.preventDefault();
@@ -1200,6 +1419,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
   function newWorld() {
     SEED = Math.floor(Math.random() * 900000) + 1;
     edits = {}; inv = starterInv(); craft = []; cursor = null;
+    MOBS.slice().forEach(removeMob);
     var ks = []; meshes.forEach(function (m, k) { ks.push(k); });
     ks.forEach(dropMesh);
     chunks.clear(); lc = null; pending = [];
@@ -1215,7 +1435,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     saveTimer = null;
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify({
-        seed: SEED, edits: edits, R: R, sel: sel, inv: inv, fly: P.fly ? 1 : 0,
+        seed: SEED, edits: edits, R: R, sel: sel, inv: inv, q: quality, wt: worldT, fly: P.fly ? 1 : 0,
         p: { x: P.x, y: P.y, z: P.z, yaw: P.yaw, pitch: P.pitch }
       }));
     } catch (e) {}
@@ -1226,7 +1446,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
 
   /* ---------- menus ---------- */
   var paused = true, screen = "title", optsFrom = "title", orbit = 0, hadLock = false;
-  var screens = { title: document.getElementById("intro"), pause: document.getElementById("pausemenu"), opts: document.getElementById("opts"), dead: document.getElementById("deadscreen"), inv: document.getElementById("invscreen") };
+  var screens = { title: document.getElementById("intro"), pause: document.getElementById("pausemenu"), opts: document.getElementById("opts"), dead: document.getElementById("deadscreen"), inv: document.getElementById("invscreen"), book: document.getElementById("bookscreen") };
   function setScreen(name) {
     screen = name;
     paused = name !== null;
@@ -1277,6 +1497,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     var h = paused ? null : pick();
     if (h) { hl.visible = true; hl.position.set(h.x + 0.5, h.y + 0.5, h.z + 0.5); } else hl.visible = false;
     if ((fc++ & 7) === 0) coords.textContent = "X " + Math.floor(P.x) + "  Y " + Math.floor(P.y) + "  Z " + Math.floor(P.z);
+    updateWorldLight(dt);
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
   }
