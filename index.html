@@ -862,6 +862,12 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
     scene.add(mesh);
     PROJ.push({ mesh: mesh, x: x, y: y, z: z, vx: vx, vy: vy, vz: vz, friendly: friendly, life: 4 });
   }
+  /* while flying high above the ground, monsters and animals cannot shoot at you */
+  function canRangedHit() {
+    if (!P.fly) return true;
+    var gy = skyY(Math.floor(P.x), Math.floor(P.z)) + 1;
+    return P.y - gy <= 5;
+  }
   function shootArrow(fx, fy, fz, tx, ty, tz, friendly) { shootFrom(fx, fy, fz, tx - fx, ty - fy, tz - fz, 22, friendly); }
   function removeProj(i) { var p = PROJ[i]; scene.remove(p.mesh); if (p.mesh.geometry) p.mesh.geometry.dispose(); PROJ.splice(i, 1); }
   function updateProj(dt) {
@@ -877,7 +883,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
         var hitM = null;
         for (var mi = 0; mi < MOBS.length; mi++) { var mm = MOBS[mi]; if (Math.hypot(mm.x - p.x, mm.y + 0.9 - p.y, mm.z - p.z) < 0.9) { hitM = mm; break; } }
         if (hitM) { hitMobBy(hitM, 5); removeProj(i); continue; }
-      } else if (Math.hypot(P.x - p.x, P.y + 1.0 - p.y, P.z - p.z) < 0.7) { damagePlayer(2); removeProj(i); continue; }
+      } else if (canRangedHit() && Math.hypot(P.x - p.x, P.y + 1.0 - p.y, P.z - p.z) < 0.7) { damagePlayer(2); removeProj(i); continue; }
     }
   }
   function shootBow() {
@@ -1230,13 +1236,13 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
           speed = 1.6;
           if (d < 5) { want = -nxp; wz = -nzp; }
           else if (d > 8 && d < 16) { want = nxp; wz = nzp; }
-          if (d < 13 && m.cool === 0 && clearLine(m.x, m.y + 1.5, m.z, P.x, P.y + 1.4, P.z)) { damagePlayer(1); m.cool = 2.2; }
+          if (d < 13 && m.cool === 0 && canRangedHit() && clearLine(m.x, m.y + 1.5, m.z, P.x, P.y + 1.4, P.z)) { damagePlayer(1); m.cool = 2.2; }
         }
       } else {
         m.wanderT -= dt;
         if (m.type === "fox") {
           m.bow = Math.max(0, m.bow - dt);
-          if (m.bow <= 0 && d > 3 && d < 15 && clearLine(m.x, m.y + 1.2, m.z, P.x, P.y + 1.4, P.z)) { m.bow = 2.6; shootArrow(m.x, m.y + 1.2, m.z, P.x, P.y + 1.4, P.z, false); }
+          if (m.bow <= 0 && d > 3 && d < 15 && canRangedHit() && clearLine(m.x, m.y + 1.2, m.z, P.x, P.y + 1.4, P.z)) { m.bow = 2.6; shootArrow(m.x, m.y + 1.2, m.z, P.x, P.y + 1.4, P.z, false); }
         }
         if (m.fleeT > 0) { speed = 3; want = -nxp; wz = -nzp; }
         else {
