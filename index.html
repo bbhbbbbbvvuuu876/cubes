@@ -375,13 +375,6 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
         var ov = hash3(gx, y, gz, 77);
         if (ov < 0.022) d[oi] = 10;
         else if (y < 24 && ov > 0.988) d[oi] = 11;
-        else if (y < 18 && ov < 0.03) d[oi] = 50;
-        else if (y < 12 && ov < 0.034) d[oi] = 51;
-        else if (y < 16 && ov < 0.046) d[oi] = 53;
-        else if (y < 18 && ov < 0.058) d[oi] = 54;
-        else if (y < 40 && ov < 0.07) d[oi] = 56;
-        else if (y < 30 && ov < 0.078) d[oi] = 55;
-        else if (ch >= 40 && y > ch - 16 && ov < 0.09) d[oi] = 52;
         else if (y < 12) d[oi] = 71;
         if (y < 14 && d[oi] === 71 && hash3(gx, y, gz, 79) < 0.1) d[oi] = 81;
       }
@@ -394,7 +387,7 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
         var air = false;
         if (inRav && y >= 6) air = true;
         else if (inShaft && y >= 12) air = true;
-        else if (y < ch - 1 && vnoise3(gx / 12, y / 6, gz / 12, 41) > 0.8) air = true;
+        else if (y < ch - 3 && (vnoise3(gx / 36, y / 16, gz / 36, 41) > 0.7 || vnoise3(gx / 14, y / 8, gz / 14, 47) > 0.84)) air = true;
         else if (y < ch - 2) {
           var sa = vnoise3(gx / 16, y / 10, gz / 16, 61), sb = vnoise3(gx / 16, y / 10, gz / 16, 62);
           if (Math.abs(sa - 0.5) < 0.04 && Math.abs(sb - 0.5) < 0.04) air = true;
@@ -407,8 +400,8 @@ canvas#view { display: block; width: 100%; height: 100%; touch-action: none; out
         var pi = lx + CS * (lz + CS * y);
         if (d[pi] !== 0) {
           if ((d[pi] === 3 || d[pi] === 71) && y < 44) {
-            var nearAir = (lx > 0 && d[pi - 1] === 0) || (lx < CS - 1 && d[pi + 1] === 0) || (lz > 0 && d[pi - CS] === 0) || (lz < CS - 1 && d[pi + CS] === 0);
-            if (nearAir && hash3(gx, y, gz, 111) < 0.0035) {
+            var buried = lx > 0 && lx < CS - 1 && lz > 0 && lz < CS - 1 && y > 1 && y < H - 1 && d[pi - 1] > 0 && d[pi + 1] > 0 && d[pi - CS] > 0 && d[pi + CS] > 0 && d[pi - CS * CS] > 0 && d[pi + CS * CS] > 0;
+            if (buried && hash3(gx, y, gz, 111) < 0.0008) {
               var rr2 = hash3(gx, y, gz, 112);
               d[pi] = rr2 < 0.3 ? 51 : rr2 < 0.55 ? 52 : rr2 < 0.8 ? 50 : 53;
             }
